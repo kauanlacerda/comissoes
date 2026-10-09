@@ -5,7 +5,7 @@ Tudo fica salvo **só neste computador**. Não tem servidor nem conta.
 
 ## Instalar
 
-Rode `distComissoes-<versão>-instalador.exe`. Ele instala só pro seu usuário (não pede administrador)
+Rode `dist\Comissoes-<versão>-instalador.exe`. Ele instala só pro seu usuário (não pede administrador)
 e cria atalhos na área de trabalho e no menu Iniciar. Desinstalar pelo Windows **não apaga** seus dados.
 
 Pra rodar direto do código (desenvolvimento): `iniciar.bat` ou `npm start`.
