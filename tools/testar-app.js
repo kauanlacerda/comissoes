@@ -18,11 +18,13 @@ fs.writeFileSync(path.join(dados, 'comissoes-dados.json'), JSON.stringify({
   ]
 }));
 const porta = 9241;
-const exe = path.join(raiz, 'node_modules', 'electron', 'dist', 'electron.exe');
+// COMISSOES_EXE=<caminho do Comissões.exe instalado> testa o app empacotado em vez do código-fonte
+const instalado = process.env.COMISSOES_EXE || '';
+const exe = instalado || path.join(raiz, 'node_modules', 'electron', 'dist', 'electron.exe');
 const espera = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
-  const proc = spawn(exe, ['.', `--remote-debugging-port=${porta}`, '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'], { cwd: raiz, env: { ...process.env, COMISSOES_DADOS: dados }, stdio: 'ignore' });
+  const proc = spawn(exe, [...(instalado ? [] : ['.']), `--remote-debugging-port=${porta}`, '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'], { cwd: instalado ? path.dirname(instalado) : raiz, env: { ...process.env, COMISSOES_DADOS: dados }, stdio: 'ignore' });
   let ws, id = 0; const pend = new Map();
   const resultados = [];
   const ok = (nome, cond, extra = '') => { resultados.push({ nome, ok: !!cond, extra }); console.log((cond ? 'PASSOU ' : 'FALHOU ') + nome + (extra ? ' — ' + extra : '')); };
@@ -38,7 +40,9 @@ async function main() {
     ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pend.has(d.id)) { pend.get(d.id)(d); pend.delete(d.id); } };
     const cdp = (method, params = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
     const ev = async (expr) => { const r = await cdp('Runtime.evaluate', { expression: `(async()=>{ ${expr} })()`, awaitPromise: true, returnByValue: true }); if (r.result.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || 'erro'); return r.result.result.value; };
-    await espera(1200);
+    // espera a tela ficar pronta (o app empacotado carrega mais devagar que o código-fonte)
+    for (let i = 0; i < 40; i++) { const r = await cdp('Runtime.evaluate', { expression: "typeof App === 'object' && !!document.querySelector('#lateral') && document.querySelector('#lateral').children.length > 3", returnByValue: true }); if (r.result && r.result.result && r.result.result.value === true) break; await espera(250); }
+    await espera(300);
 
     ok('ponte window.api existe', await ev('return !!window.api && App.noApp'));
     const mig = await ev("return App.estado.pedidos.map(p => ({ id: p.id, feito: p.feito, pago: p.pago, notas: p.notas, temEtapa: 'etapa' in p || 'recebido' in p || 'rodada' in p }))");

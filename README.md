@@ -3,10 +3,13 @@
 Painel pessoal pra organizar clientes e pedidos de GFX (thumbs, ícones, banners).
 Tudo fica salvo **só neste computador**. Não tem servidor nem conta.
 
-## Abrir
+## Instalar
 
-- Dois cliques em `iniciar.bat`, ou
-- no terminal, nesta pasta: `npm start`
+Rode `distComissoes-<versão>-instalador.exe`. Ele instala só pro seu usuário (não pede administrador)
+e cria atalhos na área de trabalho e no menu Iniciar. Desinstalar pelo Windows **não apaga** seus dados.
+
+Pra rodar direto do código (desenvolvimento): `iniciar.bat` ou `npm start`.
+Não deixe as duas versões abertas ao mesmo tempo: elas usam os mesmos dados.
 
 ## Configurar o Discord (uma vez, 2 minutos)
 

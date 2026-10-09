@@ -1,7 +1,7 @@
 {
   "name": "comissoes",
   "productName": "Comissões",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Painel pessoal de comissões e clientes (GFX Roblox)",
   "main": "main.js",
   "scripts": {
@@ -50,7 +50,12 @@
       "shortcutName": "Comissões",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
-      "perMachine": false
+      "perMachine": false,
+      "createStartMenuShortcut": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "uninstallDisplayName": "Comissões"
     }
   }
 }
