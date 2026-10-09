@@ -45,16 +45,26 @@
 
   function normalizar(d) {
     const e = d && typeof d === 'object' ? d : {};
+    const ehObjeto = (o) => o && typeof o === 'object' && !Array.isArray(o);
+    // config vinda de arquivo/backup: força tipos e limites (nada de string virando HTML)
+    const cfg = { ...CONFIG_PADRAO, ...(ehObjeto(e.config) ? e.config : {}) };
+    cfg.vagas = Math.max(1, Math.min(10, parseInt(cfg.vagas, 10) || 3));
+    const pz = parseInt(cfg.prazoAlertaDias, 10);
+    cfg.prazoAlertaDias = Number.isFinite(pz) ? Math.max(0, Math.min(14, pz)) : 2;
+    if (!App.MOEDAS.includes(cfg.moedaPadrao)) cfg.moedaPadrao = 'Robux';
+    cfg.tema = cfg.tema === 'of' ? 'of' : 'cube';
+    cfg.ocupado = !!cfg.ocupado; cfg.lateralRecolhida = !!cfg.lateralRecolhida;
+    ['nome', 'linkGamepass', 'msgGamepass'].forEach(k => { if (typeof cfg[k] !== 'string') cfg[k] = CONFIG_PADRAO[k]; });
     return {
-      config: { ...CONFIG_PADRAO, ...(e.config || {}) },
-      clientes: (Array.isArray(e.clientes) ? e.clientes : []).map(c => ({
+      config: cfg,
+      clientes: (Array.isArray(e.clientes) ? e.clientes : []).filter(ehObjeto).map(c => ({
         id: c.id || uid(), criadoEm: c.criadoEm || agoraISO(), nome: c.nome || c.globalName || c.username || 'Cliente',
         discordId: c.discordId || '', username: c.username || '', globalName: c.globalName || '', avatar: c.avatar || '',
         corPerfil: c.corPerfil || '', contaCriada: c.contaCriada || '', atualizadoEm: c.atualizadoEm || '',
         roblox: c.roblox || null, conversa: c.conversa && c.conversa.estado ? c.conversa : { estado: 'respondido', desde: agoraISO() },
         notas: c.notas || '', pagaVia: c.pagaVia || ''
       })),
-      pedidos: (Array.isArray(e.pedidos) ? e.pedidos : []).map(p => {
+      pedidos: (Array.isArray(e.pedidos) ? e.pedidos : []).filter(ehObjeto).map(p => {
         const qtd = Math.max(1, Math.min(12, parseInt(p.qtd, 10) || 1));
         const entregas = Array.from({ length: qtd }, (_, i) => (p.entregas && p.entregas[i]) || null);
         return {
@@ -168,7 +178,8 @@
     if (v <= 0) return { chave: 'sem', rotulo: 'Sem valor', tipo: 'neutra' };
     if (r >= v) return { chave: 'pago', rotulo: 'Pago', tipo: 'verde' };
     if (r <= 0) return { chave: 'nao', rotulo: 'Não pago', tipo: 'neutra' };
-    if (Math.abs(r - v / 2) < 0.01) return { chave: 'metade', rotulo: 'Metade paga', tipo: 'amarelo' };
+    // em Robux a "metade" é arredondada pra inteiro (1501 → 750 ou 751)
+    if (Math.abs(r - v / 2) < (p.moeda === 'Robux' ? 0.51 : 0.01)) return { chave: 'metade', rotulo: 'Metade paga', tipo: 'amarelo' };
     return { chave: 'parcial', rotulo: 'Parcial', tipo: 'amarelo' };
   };
   App.falta = (p) => Math.max(0, (+p.valor || 0) - (+p.recebido || 0));

@@ -42,11 +42,21 @@ class Store {
       clientes: Array.isArray(novo.clientes) ? novo.clientes : [],
       pedidos: Array.isArray(novo.pedidos) ? novo.pedidos : []
     };
+    // o backup do dia guarda o estado de ANTES da primeira mudança do dia
+    this._backupDiario();
     const tmp = this.file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf8');
     fs.renameSync(tmp, this.file);
-    this._backupDiario();
     return true;
+  }
+
+  // cópia avulsa antes de operações destrutivas (ex.: importar backup); não entra na limpeza dos 14
+  snapshot(motivo) {
+    try {
+      if (!fs.existsSync(this.file)) return;
+      fs.mkdirSync(this.backupDir, { recursive: true });
+      fs.copyFileSync(this.file, path.join(this.backupDir, motivo + '-' + Date.now() + '.json'));
+    } catch {}
   }
 
   _backupDiario() {
@@ -55,7 +65,7 @@ class Store {
       const d = new Date();
       const nome = `comissoes-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
       const alvo = path.join(this.backupDir, nome);
-      if (!fs.existsSync(alvo)) fs.copyFileSync(this.file, alvo);
+      if (!fs.existsSync(alvo) && fs.existsSync(this.file)) fs.copyFileSync(this.file, alvo);
       const todos = fs.readdirSync(this.backupDir).filter(f => f.startsWith('comissoes-') && f.endsWith('.json')).sort();
       while (todos.length > 14) { fs.unlinkSync(path.join(this.backupDir, todos.shift())); }
     } catch {}

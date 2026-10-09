@@ -177,15 +177,13 @@
     const c = clienteDe(p);
     const n = p.qtd, x = App.entreguesNoPedido(p);
     const titulo = p.jogo || p.titulo;
-    const partes = [];
-    if (p.jogo) partes.push(esc(p.titulo));
-    partes.push(`${x} de ${n} ${n === 1 ? 'entregue' : 'entregues'}`);
-    if (p.rodada > 1) partes.push(`rodada ${p.rodada}`);
+    // o progresso nunca é cortado: só o título encolhe
+    const progresso = `${x} de ${n} ${n === 1 ? 'entregue' : 'entregues'}${p.rodada > 1 ? ' · rodada ' + p.rodada : ''}`;
     const refs = refsCache[p.id];
     const ajustes = (p.ajustes || []).slice().reverse();
     return `<section class="bloco sem-pad cresce ped-detalhe" data-rolagem="detalhe-pedido" aria-label="Detalhe do pedido">
       <div class="capa" style="--cor-capa:${corSegura(c.corPerfil)}">
-        <div class="ped-capa-txt"><h2 class="truncar">${esc(titulo)}</h2><div class="ped-capa-sub truncar">${partes.join(' · ')}</div></div>
+        <div class="ped-capa-txt"><h2 class="truncar" title="${esc(titulo)}">${esc(titulo)}</h2><div class="ped-capa-sub">${p.jogo ? `<span class="truncar" title="${esc(p.titulo)}">${esc(p.titulo)}</span><span aria-hidden="true">·</span>` : ''}<span class="ped-capa-cont">${progresso}</span></div></div>
         <span class="chip">${esc(CHIP[p.etapa] || App.rotuloEtapa(p.etapa))}</span>
       </div>
       <div class="ped-corpo">
@@ -283,7 +281,7 @@
           <button class="btn btn-primario btn-bloco" data-acao="adicionar">${ic('upload', 18)}Adicionar trabalho</button>
           <button class="btn btn-sec btn-bloco" data-acao="entregar" ${idx >= 2 ? 'disabled' : ''}>${ic('check', 18)}Entregar<span class="dica">${dicaEntregar}</span></button>
           <button class="btn btn-sec btn-bloco" data-acao="ajuste" ${podeAjuste ? '' : 'disabled'}>${ic('atualizar', 18)}Pediu ajuste<span class="dica">${dicaAjuste}</span></button>
-          <button class="btn btn-acento btn-bloco" data-acao="gamepass" ${faltaReceber > 0 ? '' : 'disabled'} title="Copia a mensagem com o valor que falta e o link do gamepass">${ic('enviar', 18)}Enviar gamepass</button>
+          <button class="btn btn-acento btn-bloco" data-acao="gamepass" ${faltaReceber > 0 && p.moeda === 'Robux' ? '' : 'disabled'} title="${p.moeda === 'Robux' ? 'Copia a mensagem com o valor que falta e o link do gamepass' : 'Gamepass só serve para pedidos em Robux'}">${ic('enviar', 18)}Enviar gamepass</button>
           <button class="btn btn-sec btn-bloco" data-acao="aprovou" ${p.etapa === 'entregue' ? '' : 'disabled'}>${ic('joinha', 18)}Cliente aprovou<span class="dica">${dicaAprovou}</span></button>
           <button class="btn btn-acento btn-bloco" data-acao="pago" ${faltaReceber > 0 ? '' : 'disabled'}>${ic('dinheiro', 18)}Marcar pago</button>
         </div>
@@ -441,6 +439,7 @@
 
   function enviarGamepass(pedidoId) {
     const p = App.pedido(pedidoId); if (!p) return;
+    if (p.moeda !== 'Robux') { UI.toast('Gamepass só serve para pedidos em Robux.', 'erro'); return; }
     const cfg = App.estado.config;
     const link = String(cfg.linkGamepass || '').trim();
     if (!link) { UI.toast('Falta o link do gamepass. Coloque em Configurações.', 'erro'); return; }

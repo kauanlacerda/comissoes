@@ -51,7 +51,12 @@
   // ---------- Avatar ----------
   const CORES = ['#5b47a8', '#1f5a70', '#7a5524', '#245a45', '#7a2f49', '#2d4270', '#4f5a24', '#6b3a7a'];
   UI.corDe = (texto) => { let h = 0; for (const c of String(texto || '?')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return CORES[h % CORES.length]; };
-  UI.iniciais = (nome) => { const p = String(nome || '?').trim().split(/\s+/); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase().slice(0, 2); };
+  // primeira LETRA/número de cada palavra (nome do Discord pode começar com emoji)
+  UI.iniciais = (nome) => {
+    const ini = (s) => ((String(s).match(/[\p{L}\p{N}]/u) || [''])[0]);
+    const p = String(nome || '').trim().split(/\s+/).filter(w => ini(w));
+    return ((ini(p[0] || '') || '?') + (p.length > 1 ? ini(p[p.length - 1]) : '')).toUpperCase();
+  };
   // opts: { tam, img, nome, classe, quadrado }
   UI.avatar = ({ tam = 36, img = '', nome = '', classe = '', quadrado = false } = {}) => {
     const conteudo = img ? `<img src="${UI.esc(img)}" alt="">` : '';
@@ -87,7 +92,10 @@
   UI.modal = ({ titulo = '', sub = '', corpo = '', rodape = '', largura = 520, aoMontar, aoFechar } = {}) => {
     const fundo = document.createElement('div');
     fundo.className = 'fundo-modal';
-    fundo.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${UI.esc(titulo)}" style="--largura:${largura}px">
+    // tira o foco do botão que abriu (senão Enter abre um segundo modal igual) e devolve ao fechar
+    const abridor = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    if (abridor) abridor.blur();
+    fundo.innerHTML = `<div class="modal" tabindex="-1" role="dialog" aria-modal="true" aria-label="${UI.esc(titulo)}" style="--largura:${largura}px">
       <div class="modal-cab"><div class="tit"><h2>${UI.esc(titulo)}</h2>${sub ? `<div class="sub">${UI.esc(sub)}</div>` : ''}</div>
       <button class="btn btn-sec btn-peq btn-icone" data-fechar aria-label="Fechar">${UI.icone('x', 18, 2.2)}</button></div>
       <div class="modal-corpo">${corpo}</div>${rodape ? `<div class="modal-rodape">${rodape}</div>` : ''}</div>`;
@@ -97,6 +105,7 @@
       if (fechado) return; fechado = true;
       fundo.remove();
       const i = pilhaModais.indexOf(fechar); if (i >= 0) pilhaModais.splice(i, 1);
+      if (abridor && abridor.isConnected) { try { abridor.focus({ preventScroll: true }); } catch {} }
       if (aoFechar) aoFechar();
     };
     pilhaModais.push(fechar);
@@ -104,8 +113,8 @@
     fundo.querySelector('[data-fechar]').addEventListener('click', fechar);
     const el = fundo.querySelector('.modal');
     if (aoMontar) aoMontar(el, fechar);
-    const foco = el.querySelector('[autofocus]') || el.querySelector('input, textarea, select');
-    if (foco) setTimeout(() => foco.focus(), 30);
+    const foco = el.querySelector('[autofocus]') || el.querySelector('input, textarea, select') || el;
+    setTimeout(() => { if (fundo.isConnected) foco.focus(); }, 30);
     return fechar;
   };
   UI.fecharModalTopo = () => { const f = pilhaModais[pilhaModais.length - 1]; if (f) { f(); return true; } return false; };
@@ -117,7 +126,8 @@
     UI.modal({
       titulo, largura: 420,
       corpo: texto ? `<p class="suave" style="margin:0;line-height:1.55">${UI.esc(texto)}</p>` : '',
-      rodape: `<button class="btn btn-sec" data-nao>Cancelar</button><button class="btn ${perigo ? 'btn-perigo' : 'btn-primario'}" data-sim>${UI.esc(ok)}</button>`,
+      // Enter confirma só o que não é destrutivo
+      rodape: `<button class="btn btn-sec" data-nao>Cancelar</button><button class="btn ${perigo ? 'btn-perigo' : 'btn-primario'}" data-sim ${perigo ? '' : 'autofocus'}>${UI.esc(ok)}</button>`,
       aoMontar: (el, fechar) => {
         el.querySelector('[data-nao]').onclick = fechar;
         el.querySelector('[data-sim]').onclick = () => { resposta = true; fechar(); };

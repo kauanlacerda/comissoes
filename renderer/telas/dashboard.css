@@ -56,6 +56,8 @@ html[data-tema="cube"] .dash-cli { padding: 9px 12px; gap: 11px; }
 /* botão "abrir ficha" (avatar + nome + status) — parece só conteúdo da linha */
 .dash-cli-abrir { flex: 1; min-width: 0; display: flex; align-items: center; gap: inherit; padding: 0; border: 0; background: none; color: inherit; text-align: left; border-radius: var(--raio-peq); }
 .dash-clientes .vazio { flex: 1; padding: 24px 12px; }
+/* janela baixa: o vazio do Clientes mostra só título e botão pra caber no card */
+@media (max-height: 820px) { .dash-clientes .vazio p, .dash-clientes .vazio .ic-vazio { display: none; } .dash-clientes .vazio { padding: 8px 12px; } }
 
 .dash-cli-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dash-nome { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 14px; font-weight: 700; }
@@ -80,6 +82,11 @@ html[data-tema="of"] .dash-com { padding: 16px 20px 8px; }
   .dash-tabela .tabela-cab, .dash-tabela .linha { gap: 12px; }
   html[data-tema="cube"] .dash-tabela .linha { padding-left: 12px; padding-right: 10px; }
   html[data-tema="cube"] .dash-tabela .tabela-cab { padding-left: 12px; padding-right: 10px; }
+}
+/* bem estreito (cube no mínimo): some avatar e barrinhas, fica o nome da etapa colorido */
+@container (max-width: 500px) {
+  .dash-tabela { --colunas: minmax(0, 1fr) 84px 88px 104px; }
+  .dash-tabela .dash-ped-cli > .avatar, .dash-tabela .etapas-mini { display: none; }
 }
 .dash-tabela .tabela-cab { position: sticky; top: 0; z-index: 1; background: var(--card); }
 html[data-tema="cube"] .dash-tabela .tabela-cab { padding-bottom: 8px; }

@@ -7,6 +7,9 @@
 .cl-paineis { container: cl-paineis / inline-size; }
 .paineis > .bloco.cl-lista { flex: none; width: 240px; padding: 20px 12px 12px; }
 .paineis > .bloco.cl-ficha { overflow-y: auto; overflow-x: hidden; container: cl-ficha / inline-size; }
+html[data-tema="cube"] .paineis > .bloco.cl-ficha { scrollbar-width: none; }
+html[data-tema] .cl-lista-rolar::-webkit-scrollbar-thumb, html[data-tema] .cl-ficha::-webkit-scrollbar-thumb, html[data-tema] .cl-perfil-corpo::-webkit-scrollbar-thumb { background: transparent; }
+html[data-tema] .cl-lista-rolar:hover::-webkit-scrollbar-thumb, html[data-tema] .cl-ficha:hover::-webkit-scrollbar-thumb, html[data-tema] .cl-perfil-corpo:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--mudo) 35%, transparent); }
 .paineis > .bloco.cl-perfil { flex: none; width: 300px; }
 html[data-tema="of"] .paineis > .bloco.cl-lista { padding: 16px 12px 12px; }
 /* perto da janela mínima (cube até ~1130px): a lista cede 30px pra ficha não ficar abaixo de ~260px.
@@ -92,6 +95,8 @@ html[data-tema="of"] textarea.cl-notas-txt { font-size: 13px; }
 /* ficha estreita (janela mínima): cada pedido vira 2 linhas — título | pagamento / etapa | valor.
    As barrinhas saem (não cabem); a etapa continua no texto colorido */
 @container cl-ficha (max-width: 389px) {
+  .cl-ficha .capa { flex-wrap: wrap; align-content: flex-end; row-gap: 8px; }
+  .cl-capa-txt { flex-basis: 100%; }
   .cl-ficha .capa, html[data-tema="of"] .cl-ficha .capa { padding-left: 18px; padding-right: 18px; }
   html[data-tema="cube"] .cl-ficha .capa h2 { font-size: 22px; }
   .cl-corpo, html[data-tema="of"] .cl-corpo { padding-left: 16px; padding-right: 16px; }

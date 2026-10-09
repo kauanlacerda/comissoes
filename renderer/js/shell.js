@@ -14,7 +14,7 @@
     const contaGrupo = (g) => App.estado.pedidos.filter(p => App.grupoDe(p).id === g).length;
     const v = App.vagas();
     const falta = App.faltaResponder();
-    // cabe na janela mínima (700px): no máximo 4 conversas, quem espera primeiro
+    // até 4 conversas (quem espera primeiro); a lista encolhe/rola em janelas baixas pra nunca esconder Configurações/Recolher
     const conversas = [...falta, ...App.respondidos()].slice(0, 4);
 
     const nav = (id, icone, rotulo, cont) => `<button class="nav-item ${tela === id ? 'ativo' : ''}" data-ir="${id}" title="${esc(rotulo)}">${ic(icone, recolhida ? 20 : 18)}<span class="rot so-aberta">${esc(rotulo)}</span>${cont != null ? `<span class="cont so-aberta">${cont}</span>` : ''}</button>`;
@@ -26,17 +26,17 @@
       ${nav('pedidos', 'pedidos', 'Pedidos', ativos.length)}
       ${App.GRUPOS.slice(0, 4).map(sub).join('')}
       ${nav('clientes', 'clientes', 'Clientes', App.estado.clientes.length)}
-      ${conversas.length ? `<div class="lateral-secao so-aberta">Conversas</div>
+      ${conversas.length ? `<div class="lateral-conversas so-aberta"><div class="lateral-secao">Conversas</div>
         ${conversas.map(c => {
           const f = c.conversa.estado === 'falta';
           return `<button class="conversa so-aberta" data-cliente="${esc(c.id)}">${UI.avatar({ tam: 34, img: c.avatar, nome: c.nome, classe: f ? 'anel-falta' : 'anel-ok' })}
             <span class="truncar"><span class="nome"><span class="truncar">${esc(c.nome)}</span><span class="ponto-status">${UI.ponto(f ? 'var(--vermelho)' : 'var(--verde)')}</span></span>
             <span class="estado ${f ? 'cor-vermelho' : 'cor-verde'}">${f ? 'Esperando ' + esc(App.fmtHa(c.conversa.desde)) : 'Respondido'}</span></span></button>`;
-        }).join('')}` : ''}
+        }).join('')}</div>` : ''}
       <div class="espacador"></div>
       <div class="ocupado so-aberta">
-        <span class="anel-vagas">${v.usadas}</span>
-        <span style="flex:1;min-width:0"><span class="forte" style="display:block;font-size:14px">${cfg.ocupado ? 'Ocupado' : 'Disponível'}</span><span class="pequeno mudo">${v.usadas} de ${v.total} vagas</span></span>
+        <span class="anel-vagas">${esc(v.usadas)}</span>
+        <span style="flex:1;min-width:0"><span class="forte" style="display:block;font-size:14px">${cfg.ocupado ? 'Ocupado' : 'Disponível'}</span><span class="pequeno mudo">${esc(v.usadas)} de ${esc(v.total)} vagas</span></span>
         <button class="chave" data-ocupado aria-pressed="${cfg.ocupado ? 'true' : 'false'}" aria-label="Ocupado" title="Marcar como ocupado"></button>
       </div>
       ${nav('config', 'config', 'Configurações')}
@@ -56,7 +56,7 @@
     const falta = App.faltaResponder();
     const botao = info.botao === null ? null : (info.botao || { rotulo: 'Novo cliente', icone: 'mais', acao: () => App.modais.novoCliente && App.modais.novoCliente() });
     el.innerHTML = `
-      <div class="cab-titulo"><h1>${esc(info.titulo || '')}</h1>${info.sub ? `<div class="sub">${esc(info.sub)}</div>` : ''}</div>
+      <div class="cab-titulo"><h1 title="${esc(info.titulo || '')}">${esc(info.titulo || '')}</h1>${info.sub ? `<div class="sub">${esc(info.sub)}</div>` : ''}</div>
       <button class="busca" data-busca>${ic('busca', 17)}<span class="rot">Buscar cliente, pedido ou @</span><span class="tecla">Ctrl K</span></button>
       <div class="cresce"></div>
       <button class="btn-cab" data-sino aria-label="Alertas">${ic('sino', 17)}${alertas.length ? `<span class="badge">${alertas.length}</span>` : ''}</button>
@@ -69,8 +69,13 @@
 
   // ---------- Área ----------
   const rolagens = {};
+  let rotaDesenhada = null;
   function renderArea(tela) {
     const area = $('#area');
+    // redesenho causado por trabalho em segundo plano não pode roubar o foco de quem está digitando
+    const ae = document.activeElement;
+    const manter = ae && ae.id && area.contains(ae) && App.rota === rotaDesenhada
+      ? { id: ae.id, sel: typeof ae.selectionStart === 'number' ? [ae.selectionStart, ae.selectionEnd, ae.scrollTop] : null } : null;
     // guarda rolagens marcadas com data-rolagem="chave"
     area.querySelectorAll('[data-rolagem]').forEach(n => { rolagens[App.rota.tela + ':' + n.dataset.rolagem] = n.scrollTop; });
     const topo = area.scrollTop;
@@ -79,6 +84,11 @@
     try {
       area.innerHTML = tela.render();
       if (tela.montar) tela.montar(area);
+      rotaDesenhada = App.rota;
+      if (manter) {
+        const n = document.getElementById(manter.id);
+        if (n && n !== document.activeElement) { n.focus({ preventScroll: true }); if (manter.sel) { try { n.setSelectionRange(manter.sel[0], manter.sel[1]); } catch {} n.scrollTop = manter.sel[2]; } }
+      }
     } catch (e) {
       console.error(e);
       area.innerHTML = UI.vazio({ icone: 'alerta', titulo: 'Algo deu errado nesta tela', texto: String(e && e.message || e) });
@@ -145,7 +155,7 @@
   App.renderizar = render;
   App.abrirBusca = abrirBusca;
   window.addEventListener('DOMContentLoaded', async () => {
-    await App.carregar();
+    try { await App.carregar(); } catch (e) { console.error(e); UI.toast('Não deu pra ler os dados salvos.', 'erro'); }
     const p = new URLSearchParams(location.search);
     if (p.get('tela')) App.rota = { tela: p.get('tela'), id: p.get('id') || null };
     if (p.get('tema')) { App.estado.config.tema = p.get('tema') === 'of' ? 'of' : 'cube'; document.documentElement.dataset.tema = App.estado.config.tema; }

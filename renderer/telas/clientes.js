@@ -129,7 +129,7 @@
     // rolagem guardada por cliente: abrir outro cliente começa do topo
     return `<div class="bloco sem-pad cresce cl-ficha" data-rolagem="ficha-${esc(c.id)}">
       <div class="capa cl-capa" style="--cor-capa:${corCapa(c)}">
-        <div class="cl-capa-txt"><h2 class="truncar">${esc(c.nome)}</h2><div class="cl-capa-sub truncar">${esc(sub)}</div></div>
+        <div class="cl-capa-txt"><h2 class="truncar" title="${esc(c.nome)}">${esc(c.nome)}</h2><div class="cl-capa-sub truncar">${esc(sub)}</div></div>
         <span class="chip">${esc(chipCapa(c))}</span>
       </div>
       <div class="cl-corpo">
@@ -211,7 +211,7 @@
     return `<div class="bloco sem-pad div-l cl-perfil">
       <div class="perfil-topo" style="--cor-capa:${corCapa(c)}"><div class="capa-mini"></div>${UI.avatar({ tam: 72, img: c.avatar, nome: c.nome })}</div>
       <div class="cl-perfil-corpo" data-rolagem="perfil-${esc(c.id)}">
-        <div class="cl-perfil-id"><div class="cl-perfil-nome truncar">${esc(c.nome)}</div><div class="cl-perfil-arroba truncar">${esc(arroba(c))}</div></div>
+        <div class="cl-perfil-id"><div class="cl-perfil-nome truncar" title="${esc(c.nome)}">${esc(c.nome)}</div><div class="cl-perfil-arroba truncar">${esc(arroba(c))}</div></div>
         ${caixaDiscord(c)}
         ${caixaRoblox(c)}
         ${caixaConversa(c)}
@@ -266,8 +266,18 @@
     if (outro) { UI.toast(`Esse ID já é de ${outro.nome}.`, 'erro'); return; }
     const soltar = ocupar(botaoVivo(btn, '[data-add-discord]', '[data-mais]'), 'Buscando…');
     let r;
-    try { r = await App.api.discord.usuario(id); } catch { r = { ok: false, erro: 'Não deu pra falar com o Discord. Tente de novo.' }; }
-    if (!r || !r.ok) { soltar(); UI.toast((r && r.erro) || 'Não deu pra buscar esse ID.', 'erro'); return; }
+    try { r = await App.api.discord.usuario(id); } catch { r = { ok: false, codigo: 'rede', erro: 'Não deu pra falar com o Discord. Tente de novo.' }; }
+    if (!r || !r.ok) {
+      soltar();
+      // sem bot / Discord fora do ar: o ID está certo, então salva igual ao modal "Novo cliente"
+      if (r && FALHA_SEM_CULPA_DO_ID.has(r.codigo)) {
+        App.acoes.atualizarCliente(c.id, { discordId: id, contaCriada: App.dataDoSnowflake(id), atualizadoEm: '' });
+        UI.toast(FALHA_DO_BOT.has(r.codigo) ? 'ID salvo sem os dados do Discord. Configure o bot e use "Atualizar dados".' : 'ID salvo. Use "Atualizar dados" quando o Discord responder.');
+        return;
+      }
+      UI.toast((r && r.erro) || 'Não deu pra buscar esse ID.', 'erro');
+      return;
+    }
     const d = r.dados || {};
     App.acoes.atualizarCliente(c.id, {
       discordId: id, username: d.username || '', globalName: d.globalName || '', avatar: d.avatar || c.avatar,

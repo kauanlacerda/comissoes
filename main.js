@@ -21,7 +21,7 @@ const arquivoToken = () => path.join(dirDados(), 'discord-token.bin');
 const EXT_IMG = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'];
 const TIPOS = ['referencias', 'entrega'];
 const idSeguro = (id) => typeof id === 'string' && /^[a-z0-9-]{4,60}$/i.test(id);
-const dentroDosDados = (p) => { const r = path.resolve(p); return r.startsWith(path.resolve(dirDados()) + path.sep); };
+const dentroDosPedidos = (p) => { const base = (path.resolve(dirDados(), 'pedidos') + path.sep).toLowerCase(); const r = path.resolve(String(p || '')); return r.toLowerCase().startsWith(base) && EXT_IMG.includes(path.extname(r).toLowerCase()); };
 function urlDe(caminho) {
   try { const st = fs.statSync(caminho); return pathToFileURL(caminho).href + '?v=' + Math.round(st.mtimeMs); } catch { return ''; }
 }
@@ -174,7 +174,7 @@ function importarArquivo({ pedidoId, tipo, caminho, slot }) {
     for (const f of fs.readdirSync(dir)) if (f.startsWith(`slot-${slot + 1}.`)) { try { fs.unlinkSync(path.join(dir, f)); } catch {} }
     nome = `slot-${slot + 1}${ext}`;
   } else {
-    const base = path.basename(caminho, path.extname(caminho)).replace(/[^\w\- ]+/g, '').slice(0, 60) || 'imagem';
+    const base = path.basename(caminho, path.extname(caminho)).normalize('NFC').replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim().slice(0, 60) || 'imagem';
     nome = base + ext;
     let n = 2;
     while (fs.existsSync(path.join(dir, nome))) nome = `${base} (${n++})${ext}`;
@@ -200,7 +200,9 @@ function registrarIpc() {
     if (r.canceled || !r.filePaths[0]) return { ok: false };
     try {
       const j = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8'));
-      if (!Array.isArray(j.clientes) || !Array.isArray(j.pedidos)) return { ok: false, erro: 'Esse arquivo não é um backup do app.' };
+      const objetos = (a) => Array.isArray(a) && a.every(o => o && typeof o === 'object' && !Array.isArray(o));
+      if (!objetos(j.clientes) || !objetos(j.pedidos)) return { ok: false, erro: 'Esse arquivo não é um backup do app.' };
+      store.snapshot('antes-de-importar');
       store.set(j);
       return { ok: true, dados: store.get() };
     } catch { return { ok: false, erro: 'Não deu pra ler o arquivo.' }; }
@@ -226,7 +228,7 @@ function registrarIpc() {
     const d = dirPedido(pedidoId, tipo); fs.mkdirSync(d, { recursive: true }); shell.openPath(d); return true;
   });
   ipcMain.handle('arquivos:remover', (_e, caminho) => {
-    if (!caminho || !dentroDosDados(caminho)) return false;
+    if (!caminho || !dentroDosPedidos(caminho)) return false;
     try { fs.unlinkSync(caminho); return true; } catch { return false; }
   });
   ipcMain.handle('arquivos:removerPedido', (_e, pedidoId) => {

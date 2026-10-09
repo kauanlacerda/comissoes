@@ -21,6 +21,9 @@ html[data-tema="of"] .ped-lista { padding: 14px 10px 12px; }
 
 /* ---------- Painel central: detalhe ---------- */
 .bloco.ped-detalhe { overflow-y: auto; }
+html[data-tema="cube"] .bloco.ped-detalhe { scrollbar-width: none; }
+.ped-capa-sub { display: flex; gap: .35em; min-width: 0; }
+.ped-capa-cont { flex: none; white-space: nowrap; }
 .paineis > .ped-detalhe > * { flex: none; }
 html[data-tema="cube"] .ped-detalhe .capa { min-height: 150px; padding: 18px 24px 16px; }
 .ped-capa-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
