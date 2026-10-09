@@ -40,6 +40,7 @@
           ]
         }
       ],
+      "icon": "assets/icon.ico",
       "artifactName": "Comissoes-${version}-instalador.${ext}"
     },
     "nsis": {

@@ -7,6 +7,9 @@ const Store = require('./store');
 let win = null;
 let store = null;
 
+// testes automáticos apontam os dados pra uma pasta temporária (nunca mexem nos dados reais)
+if (process.env.COMISSOES_DADOS) app.setPath('userData', process.env.COMISSOES_DADOS);
+
 // ---------- Caminhos ----------
 const dirDados = () => app.getPath('userData');
 const dirMidia = (...p) => path.join(dirDados(), 'midia', ...p);
@@ -32,6 +35,7 @@ function criarJanela() {
   win = new BrowserWindow({
     width: 1400, height: 860, minWidth: 1100, minHeight: 700,
     backgroundColor: CORES_BARRA[tema].color,
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
     titleBarStyle: 'hidden',
     titleBarOverlay: { ...CORES_BARRA[tema], height: 40 },
     show: false,
