@@ -68,6 +68,11 @@ Cada pedido está **A fazer** ou **Feito**, e **Pago** ou **Não pago**. Só iss
 Você arrasta as thumbs nos espaços do pedido, clica em **Marcar como feito** quando terminar
 e em **Marcar como pago** quando o cliente pagar. O **A receber** soma tudo que ainda não foi pago.
 
+**Referências:** arraste a imagem direto do Discord ou do navegador (Google Imagens, Pinterest…)
+para "Referências do cliente", ou copie a imagem (botão direito → Copiar imagem) e aperte **Ctrl+V**
+com o pedido aberto. O app baixa e guarda a imagem na pasta do pedido. No Google, abra a imagem
+antes de arrastar: assim vem a original, não a miniatura.
+
 ## "Falta responder"
 
 O app não lê suas DMs (o Discord não permite isso de forma segura).

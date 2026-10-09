@@ -172,11 +172,8 @@ function listarImagens(dir) {
   } catch { return []; }
 }
 
-function importarArquivo({ pedidoId, tipo, caminho, slot }) {
-  if (!idSeguro(pedidoId) || !TIPOS.includes(tipo)) return { ok: false, erro: 'Pedido inválido.' };
-  const ext = path.extname(String(caminho || '')).toLowerCase();
-  if (!EXT_IMG.includes(ext)) return { ok: false, erro: 'Só imagens (png, jpg, webp, gif).' };
-  if (!fs.existsSync(caminho)) return { ok: false, erro: 'Arquivo não encontrado.' };
+// onde a imagem vai morar: espaço de thumb (slot-N) ou nome livre sem repetir
+function destinoDaImagem(pedidoId, tipo, slot, nomeBase, ext) {
   const dir = dirPedido(pedidoId, tipo);
   fs.mkdirSync(dir, { recursive: true });
   let nome;
@@ -184,14 +181,87 @@ function importarArquivo({ pedidoId, tipo, caminho, slot }) {
     for (const f of fs.readdirSync(dir)) if (f.startsWith(`slot-${slot + 1}.`)) { try { fs.unlinkSync(path.join(dir, f)); } catch {} }
     nome = `slot-${slot + 1}${ext}`;
   } else {
-    const base = path.basename(caminho, path.extname(caminho)).normalize('NFC').replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim().slice(0, 60) || 'imagem';
+    const base = String(nomeBase || '').normalize('NFC').replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim().slice(0, 60) || 'imagem';
     nome = base + ext;
     let n = 2;
     while (fs.existsSync(path.join(dir, nome))) nome = `${base} (${n++})${ext}`;
   }
-  const destino = path.join(dir, nome);
+  return { destino: path.join(dir, nome), nome };
+}
+
+function importarArquivo({ pedidoId, tipo, caminho, slot }) {
+  if (!idSeguro(pedidoId) || !TIPOS.includes(tipo)) return { ok: false, erro: 'Pedido inválido.' };
+  const ext = path.extname(String(caminho || '')).toLowerCase();
+  if (!EXT_IMG.includes(ext)) return { ok: false, erro: 'Só imagens (png, jpg, webp, gif).' };
+  if (!fs.existsSync(caminho)) return { ok: false, erro: 'Arquivo não encontrado.' };
+  const { destino, nome } = destinoDaImagem(pedidoId, tipo, slot, path.basename(caminho, path.extname(caminho)), ext);
   fs.copyFileSync(caminho, destino);
   return { ok: true, caminho: destino, url: urlDe(destino), nome };
+}
+
+// ---------- Imagens da web (arrastar do Discord/navegador, colar) ----------
+const MAX_WEB = 25 * 1024 * 1024;
+// o tipo vem dos primeiros bytes, não do link nem do servidor
+function extDosBytes(b) {
+  if (b.length > 8 && b[0] === 0x89 && b.toString('ascii', 1, 4) === 'PNG') return '.png';
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return '.jpg';
+  if (b.length > 6 && b.toString('ascii', 0, 4) === 'GIF8') return '.gif';
+  if (b.length > 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return '.webp';
+  if (b.length > 26 && b.toString('ascii', 0, 2) === 'BM') return '.bmp';
+  return '';
+}
+// só https público: nada de localhost, rede local ou IP cru
+function hostPublico(u) {
+  const h = u.hostname.toLowerCase();
+  if (u.protocol !== 'https:' || !h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return false;
+  if (h.startsWith('[') || /^[\d.]+$/.test(h)) return false;
+  return true;
+}
+// link do Google Imagens (imgres?imgurl=…, url?q=…) → endereço da imagem original
+function desembrulhar(u) {
+  if (/(^|\.)google\.[a-z.]+$/.test(u.hostname)) {
+    const alvo = u.searchParams.get('imgurl') || (u.pathname === '/url' && (u.searchParams.get('q') || u.searchParams.get('url')));
+    if (alvo) { try { return new URL(alvo); } catch {} }
+  }
+  return u;
+}
+async function baixarDaWeb(endereco) {
+  let u; try { u = desembrulhar(new URL(endereco)); } catch { return null; }
+  for (let salto = 0; salto < 5; salto++) {
+    if (!hostPublico(u)) return null;
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20000);
+    try {
+      const r = await fetch(u.href, { redirect: 'manual', signal: ctl.signal, headers: { Accept: 'image/avif,image/webp,image/png,image/*;q=0.9,*/*;q=0.5' } });
+      const para = r.headers.get('location');
+      if (r.status >= 300 && r.status < 400 && para) { u = new URL(para, u); continue; }
+      if (!r.ok || !r.body || Number(r.headers.get('content-length') || 0) > MAX_WEB) return null;
+      const partes = []; let total = 0;
+      for await (const pedaco of r.body) { total += pedaco.length; if (total > MAX_WEB) { ctl.abort(); return null; } partes.push(Buffer.from(pedaco)); }
+      return { bytes: Buffer.concat(partes), url: u };
+    } catch { return null; } finally { clearTimeout(t); }
+  }
+  return null;
+}
+const nomeDaUrl = (u) => { try { return path.basename(decodeURIComponent(u.pathname), path.extname(u.pathname)); } catch { return ''; } };
+
+// opts: { pedidoId, tipo, slot, bytes?, nome?, urls? } — bytes (colado/arrastado sem arquivo) ou links pra tentar em ordem
+async function importarDaWeb(opts) {
+  const { pedidoId, tipo, slot } = opts;
+  if (!idSeguro(pedidoId) || !TIPOS.includes(tipo)) return { ok: false, erro: 'Pedido inválido.' };
+  let bytes = null, nome = '';
+  if (opts.bytes && opts.bytes.byteLength <= MAX_WEB) { bytes = Buffer.from(opts.bytes); nome = String(opts.nome || '').replace(/\.[a-z0-9]{2,5}$/i, ''); }
+  else for (const c of (Array.isArray(opts.urls) ? opts.urls : []).slice(0, 6)) {
+    const s = String(c || '');
+    const dado = /^data:image\/[a-z+.-]+;base64,([a-z0-9+/=\s]+)$/i.exec(s);
+    const r = dado ? (s.length < MAX_WEB * 1.4 ? { bytes: Buffer.from(dado[1], 'base64'), url: null } : null) : await baixarDaWeb(s);
+    if (r && extDosBytes(r.bytes)) { bytes = r.bytes; nome = r.url ? nomeDaUrl(r.url) : ''; break; }
+  }
+  if (!bytes) return { ok: false, erro: 'Não deu pra baixar essa imagem. Salve no computador e arraste o arquivo.' };
+  const ext = extDosBytes(bytes);
+  if (!ext) return { ok: false, erro: 'Isso não é uma imagem (png, jpg, webp ou gif).' };
+  const { destino, nome: final } = destinoDaImagem(pedidoId, tipo, slot, nome || 'referencia', ext);
+  fs.writeFileSync(destino, bytes);
+  return { ok: true, caminho: destino, url: urlDe(destino), nome: final };
 }
 
 // ---------- IPC ----------
@@ -235,6 +305,7 @@ function registrarIpc() {
     return r.canceled ? [] : r.filePaths;
   });
   ipcMain.handle('arquivos:importar', (_e, opts) => { try { return importarArquivo(opts || {}); } catch (err) { return { ok: false, erro: 'Não deu pra copiar a imagem.' }; } });
+  ipcMain.handle('arquivos:importarWeb', async (_e, opts) => { try { return await importarDaWeb(opts || {}); } catch (err) { return { ok: false, erro: 'Não deu pra salvar a imagem.' }; } });
   ipcMain.handle('arquivos:listar', (_e, pedidoId, tipo) => (idSeguro(pedidoId) && TIPOS.includes(tipo)) ? listarImagens(dirPedido(pedidoId, tipo)) : []);
   ipcMain.handle('arquivos:abrirPasta', (_e, pedidoId, tipo) => {
     if (!idSeguro(pedidoId) || !TIPOS.includes(tipo)) return false;

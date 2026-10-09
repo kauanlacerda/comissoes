@@ -13,9 +13,9 @@
   const filas = {};              // pedidoId -> Promise: uma leva de imagens das thumbs por vez
   const reservas = {};           // pedidoId -> {espaço: n} espaços escolhidos por levas que ainda esperam na fila
 
-  // arquivo solto sem caminho no disco: no app, é imagem arrastada direto do Discord ou do navegador
+  // arquivo solto sem caminho no disco nem conteúdo legível
   const SEM_CAMINHO = App.noApp
-    ? 'Imagem arrastada direto do Discord ou do navegador não tem arquivo. Salve no computador e arraste o arquivo salvo.'
+    ? 'Não deu pra ler essa imagem. Salve no computador e arraste o arquivo salvo.'
     : 'Isso só funciona no app instalado.';
 
   // ---------- Utilidades locais ----------
@@ -133,7 +133,7 @@
 
   function refsHtml(lista) {
     if (!lista) return `<div class="ped-refs-vazio">Carregando…</div>`;
-    if (!lista.length) return `<div class="ped-refs-vazio">${ic('imagem', 16)}<span>Arraste as referências aqui</span></div>`;
+    if (!lista.length) return `<div class="ped-refs-vazio">${ic('imagem', 16)}<span>Arraste as referências aqui ou cole com Ctrl+V</span></div>`;
     return lista.map(r => `<button class="ref" data-ref title="${esc(r.nome)} — abrir a pasta">${ic('imagem', 16)}<img src="${esc(r.url)}" alt="${esc(r.nome)}" loading="lazy"></button>`).join('');
   }
 
@@ -253,21 +253,87 @@
     </aside>`;
   }
 
-  // ---------- Arrastar e soltar ----------
-  const temArquivos = (e) => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
+  // ---------- Arrastar, soltar e colar ----------
+  // Cada item é o caminho de um arquivo do PC (texto) ou, vindo do Discord/navegador,
+  // { bytes, nome } (imagem sem arquivo) ou { urls } (links pra baixar, em ordem de preferência).
+  const MAX_SOLTO = 25 * 1024 * 1024;
+  let arrastoInterno = false;    // arrastar uma imagem do próprio app não importa nada
+  document.addEventListener('dragstart', () => { arrastoInterno = true; });
+  document.addEventListener('dragend', () => { arrastoInterno = false; });
+  const TIPOS_SOLTAR = ['Files', 'text/uri-list', 'text/html'];
+  const podeSoltar = (e) => !arrastoInterno && !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).some(t => TIPOS_SOLTAR.includes(t)));
+
+  // links de imagem que o Discord/navegador põem no arrasto: o link primeiro, depois o <img> (no Google, a miniatura)
+  function urlsDe(dt) {
+    const lista = (dt.getData('text/uri-list') || '').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+    let imgs = [];
+    const html = dt.getData('text/html') || '';
+    if (html) { try { imgs = Array.from(new DOMParser().parseFromString(html, 'text/html').images).map(i => i.getAttribute('src') || ''); } catch {} }
+    const texto = (dt.getData('text/plain') || '').trim();
+    const urls = [];
+    for (const u of [...lista, ...imgs, ...(/^https:\/\/\S+$/i.test(texto) ? [texto] : [])]) {
+      if (/^(https:|data:image\/)/i.test(u) && !urls.includes(u)) urls.push(u);
+    }
+    return urls;
+  }
+
+  // Lê o que foi solto/colado. Os dados do arrasto só podem ser lidos na hora do evento:
+  // pega arquivos e links antes de qualquer await.
+  async function itensDe(dt) {
+    const arquivos = Array.from(dt.files || []);
+    const urls = urlsDe(dt);
+    const itens = [];
+    for (const f of arquivos) {
+      const caminho = App.api.arquivos.caminhoDe(f) || '';
+      // arquivo de imagem do PC; um arquivo temporário sem extensão de imagem (navegador) cai pros bytes
+      if (caminho && (/\.(png|jpe?g|webp|gif|bmp)$/i.test(caminho) || !/^image\//.test(f.type))) { itens.push(caminho); continue; }
+      // imagem que veio sem arquivo no disco (ex.: arrastada do navegador ou copiada): manda o conteúdo
+      if (/^image\//.test(f.type) && f.size && f.size <= MAX_SOLTO) {
+        // "image.png" é o nome genérico do que foi copiado: melhor deixar o app nomear
+        try { itens.push({ bytes: new Uint8Array(await f.arrayBuffer()), nome: /^image\.\w+$/i.test(f.name || '') ? '' : (f.name || '') }); continue; } catch {}
+      }
+      if (!urls.length) itens.push('');
+    }
+    if (!itens.length && urls.length) itens.push({ urls });
+    return itens;
+  }
+
   function ligarSoltar(el, aoSoltar) {
     let cont = 0;
-    el.addEventListener('dragenter', (e) => { if (!temArquivos(e)) return; e.preventDefault(); cont++; el.classList.add('arrastando'); });
-    el.addEventListener('dragover', (e) => { if (!temArquivos(e)) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; });
+    el.addEventListener('dragenter', (e) => { if (!podeSoltar(e)) return; e.preventDefault(); cont++; el.classList.add('arrastando'); });
+    el.addEventListener('dragover', (e) => { if (!podeSoltar(e)) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; });
     el.addEventListener('dragleave', () => { cont = Math.max(0, cont - 1); if (!cont) el.classList.remove('arrastando'); });
-    el.addEventListener('drop', (e) => {
-      if (!temArquivos(e)) return;
+    el.addEventListener('drop', async (e) => {
+      if (!podeSoltar(e)) return;
       e.preventDefault(); e.stopPropagation();
       cont = 0; el.classList.remove('arrastando');
-      const arquivos = Array.from(e.dataTransfer.files || []);
-      if (arquivos.length) aoSoltar(arquivos.map(f => App.api.arquivos.caminhoDe(f) || ''));
+      const itens = await itensDe(e.dataTransfer);
+      if (itens.length) aoSoltar(itens); else UI.toast('Isso não é uma imagem.', 'erro');
     });
   }
+
+  // salva um item (arquivo do PC ou imagem da web) no pedido
+  async function importarItem(pedidoId, tipo, item, slot) {
+    if (typeof item === 'string') return App.api.arquivos.importar({ pedidoId, tipo, caminho: item, slot });
+    if (!App.api.arquivos.importarWeb) return { ok: false, erro: SEM_CAMINHO };
+    return App.api.arquivos.importarWeb({ pedidoId, tipo, slot, ...item });
+  }
+
+  // Ctrl+V com o pedido aberto: imagem copiada (Discord "Copiar imagem", navegador) ou link de imagem vira referência
+  document.addEventListener('paste', async (e) => {
+    const raiz = document.querySelector('#area .ped');
+    const pedidoId = raiz && raiz.dataset.pedido;
+    if (!pedidoId || UI.temModal() || (window.Entrada && Entrada.aberta())) return;
+    const alvo = e.target;
+    if (alvo && (alvo.closest('input, textarea, select, [contenteditable]'))) return;
+    const dt = e.clipboardData; if (!dt) return;
+    // só reage a imagem ou link de imagem; texto comum colado fora de um campo é ignorado
+    const temImagem = Array.from(dt.files || []).some(f => /^image\//.test(f.type));
+    if (!temImagem && !urlsDe(dt).length) return;
+    e.preventDefault();
+    const itens = (await itensDe(dt)).filter(Boolean);
+    if (itens.length) importarRefs(pedidoId, itens); else UI.toast('Isso não é uma imagem.', 'erro');
+  });
 
   // ---------- Referências ----------
   async function carregarRefs(pedidoId) {
@@ -283,13 +349,15 @@
     if (cont) cont.textContent = String(lista.length);
   }
 
-  async function importarRefs(pedidoId, caminhos) {
-    if (!caminhos.length) return;
+  async function importarRefs(pedidoId, itens) {
+    if (!itens.length) return;
     let ok = 0; const erros = [];
-    for (const caminho of caminhos) {
-      if (!caminho) { erros.push(SEM_CAMINHO); continue; }
+    const web = itens.some(x => x && typeof x === 'object');
+    if (web) UI.toast(itens.length > 1 ? 'Baixando as imagens…' : 'Baixando a imagem…');
+    for (const item of itens) {
+      if (!item) { erros.push(SEM_CAMINHO); continue; }
       let r;
-      try { r = await App.api.arquivos.importar({ pedidoId, tipo: 'referencias', caminho }); } catch { r = null; }
+      try { r = await importarItem(pedidoId, 'referencias', item); } catch { r = null; }
       if (r && r.ok) ok++; else erros.push((r && r.erro) || 'Não deu pra copiar a imagem.');
     }
     if (erros.length) UI.toast(erros.length > 1 ? `${erros[0]} (${erros.length} arquivos não entraram)` : erros[0], 'erro');
@@ -297,9 +365,9 @@
   }
 
   // ---------- Thumbs (pasta de entrega) ----------
-  async function colocarNaEntrega(pedidoId, caminho, i) {
+  async function colocarNaEntrega(pedidoId, item, i) {
     let r;
-    try { r = await App.api.arquivos.importar({ pedidoId, tipo: 'entrega', caminho, slot: i }); } catch { r = null; }
+    try { r = await importarItem(pedidoId, 'entrega', item, i); } catch { r = null; }
     if (!r || !r.ok) { UI.toast((r && r.erro) || 'Não deu pra copiar a imagem.', 'erro'); return false; }
     App.acoes.definirEntrega(pedidoId, i, { caminho: r.caminho, url: r.url });
     return true;

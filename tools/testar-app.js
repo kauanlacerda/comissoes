@@ -96,6 +96,30 @@ async function main() {
     ok('pedidoId com ../ é bloqueado', Array.isArray(trav) && trav.length === 0);
     const canalRuim = await ev("return await window.api.sistema.abrirCanal('abc')");
     ok('ID de grupo inválido é recusado', canalRuim === false);
+    // referências vindas da web: arrastar link/miniatura do Discord ou do navegador, colar com Ctrl+V
+    const PNG1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const web = await ev(`App.ir('pedidos', 'ped-velho-1'); await new Promise(r => setTimeout(r, 300));
+      const n = async () => (await window.api.arquivos.listar('ped-velho-1', 'referencias')).length;
+      const ate = async (k) => { for (let i = 0; i < 80; i++) { if (await n() >= k) return true; await new Promise(r => setTimeout(r, 250)); } return false; };
+      const png = () => new File([Uint8Array.from(atob('${PNG1}'), c => c.charCodeAt(0))], 'image.png', { type: 'image/png' });
+      const soltar = (dados, arquivos) => { const dt = new DataTransfer(); for (const [t, v] of Object.entries(dados)) dt.setData(t, v); for (const f of arquivos || []) dt.items.add(f);
+        document.querySelector('[data-refs-zona]').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); };
+      const r = {};
+      soltar({ 'text/html': '<img src="data:image/png;base64,${PNG1}">' }); r.miniatura = await ate(1);
+      soltar({}, [png()]); r.semArquivo = await ate(2);
+      const cola = new DataTransfer(); cola.items.add(png()); document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: cola, bubbles: true, cancelable: true })); r.colar = await ate(3);
+      const nas = new DataTransfer(); nas.items.add(png()); document.querySelector('[data-notas]').dispatchEvent(new ClipboardEvent('paste', { clipboardData: nas, bubbles: true, cancelable: true }));
+      await new Promise(r => setTimeout(r, 800)); r.notasIgnora = (await n()) === 3;
+      const recusa = await window.api.arquivos.importarWeb({ pedidoId: 'ped-velho-1', tipo: 'referencias', urls: ['https://localhost/a.png', 'https://192.168.0.1/a.png', 'http://cdn.discordapp.com/embed/avatars/0.png', 'file:///C:/Windows/win.ini', 'data:image/png;base64,' + btoa('nao sou imagem')] });
+      r.recusa = recusa.ok === false && (await n()) === 3;
+      soltar({ 'text/uri-list': 'https://cdn.discordapp.com/embed/avatars/0.png' }); r.discord = await ate(4);
+      return r;`);
+    ok('referência: miniatura (data:) arrastada do navegador entra', web.miniatura);
+    ok('referência: imagem arrastada sem arquivo no disco entra', web.semArquivo);
+    ok('referência: Ctrl+V com imagem copiada entra', web.colar);
+    ok('referência: colar dentro das notas não vira referência', web.notasIgnora);
+    ok('referência: localhost, rede local, http, file e não-imagem são recusados', web.recusa);
+    ok('referência: link do Discord arrastado é baixado (rede)', web.discord);
     // tema
     await ev("App.definirTema('of'); return true");
     ok('troca de tema aplica data-tema', (await ev('return document.documentElement.dataset.tema')) === 'of');

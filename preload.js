@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
   arquivos: {
     escolherImagens: (multiplas) => ipcRenderer.invoke('arquivos:escolherImagens', !!multiplas),
     importar: (opts) => ipcRenderer.invoke('arquivos:importar', opts),
+    importarWeb: (opts) => ipcRenderer.invoke('arquivos:importarWeb', opts),
     listar: (pedidoId, tipo) => ipcRenderer.invoke('arquivos:listar', pedidoId, tipo),
     abrirPasta: (pedidoId, tipo) => ipcRenderer.invoke('arquivos:abrirPasta', pedidoId, tipo),
     remover: (caminho) => ipcRenderer.invoke('arquivos:remover', caminho),
