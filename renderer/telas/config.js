@@ -95,7 +95,7 @@
           <div class="campo">
             <label for="cfg-vagas">Vagas simultâneas</label>
             <input class="input" id="cfg-vagas" type="number" min="1" max="10" step="1" data-campo="vagas" data-foco="vagas" value="${esc(cfg.vagas)}">
-            <div class="ajuda">Quantos pedidos você aguenta em produção ao mesmo tempo (1 a 10).</div>
+            <div class="ajuda">Quantos pedidos a fazer você aguenta ao mesmo tempo (1&nbsp;a&nbsp;10).</div>
           </div>
           <div class="campo">
             <label for="cfg-prazo">Avisar prazo com antecedência</label>

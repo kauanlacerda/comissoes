@@ -10,21 +10,17 @@
     const recolhida = !!cfg.lateralRecolhida;
     el.classList.toggle('recolhida', recolhida);
     const tela = App.rota.tela;
-    const ativos = App.pedidosAtivos();
-    const contaGrupo = (g) => App.estado.pedidos.filter(p => App.grupoDe(p).id === g).length;
     const v = App.vagas();
     const falta = App.faltaResponder();
     // até 4 conversas (quem espera primeiro); a lista encolhe/rola em janelas baixas pra nunca esconder Configurações/Recolher
     const conversas = [...falta, ...App.respondidos()].slice(0, 4);
 
     const nav = (id, icone, rotulo, cont) => `<button class="nav-item ${tela === id ? 'ativo' : ''}" data-ir="${id}" title="${esc(rotulo)}">${ic(icone, recolhida ? 20 : 18)}<span class="rot so-aberta">${esc(rotulo)}</span>${cont != null ? `<span class="cont so-aberta">${cont}</span>` : ''}</button>`;
-    const sub = (g) => `<button class="nav-item nav-sub so-aberta" data-ir="pedidos" data-grupo="${g.id}">${UI.ponto(g.cor)}<span class="rot">${esc(g.id === 'aguardando' ? 'Aguardando' : g.rotulo)}</span><span class="cont">${contaGrupo(g.id)}</span></button>`;
 
     el.innerHTML = `
       <div class="marca">${ic('logo', 26, 2.4).replace('class="ic"', 'class="ic logo"')}<span class="so-aberta">Comissões</span>${ic('chevB', 16).replace('class="ic"', 'class="ic chev so-aberta"')}</div>
       ${nav('dashboard', 'dashboard', 'Dashboard')}
-      ${nav('pedidos', 'pedidos', 'Pedidos', ativos.length)}
-      ${App.GRUPOS.slice(0, 4).map(sub).join('')}
+      ${nav('pedidos', 'pedidos', 'Pedidos', App.pedidosAFazer().length)}
       ${nav('clientes', 'clientes', 'Clientes', App.estado.clientes.length)}
       ${conversas.length ? `<div class="lateral-conversas so-aberta"><div class="lateral-secao">Conversas</div>
         ${conversas.map(c => {
@@ -121,7 +117,7 @@
           itens = [...cs.map(c => ({ tipo: 'c', c })), ...ps.map(p => ({ tipo: 'p', p }))];
           res.innerHTML = itens.length ? itens.map((it, i) => it.tipo === 'c'
             ? `<button class="item" data-i="${i}">${UI.avatar({ tam: 32, img: it.c.avatar, nome: it.c.nome })}<span class="truncar"><span class="t1" style="display:block">${esc(it.c.nome)}</span><span class="t2">${it.c.username ? '@' + esc(it.c.username) : 'cliente'}</span></span></button>`
-            : `<button class="item" data-i="${i}"><span class="avatar quadrado" style="--t:32px;--cor-avatar:var(--interno);color:var(--suave)">${ic('pedidos', 16)}</span><span class="truncar"><span class="t1" style="display:block">${esc(it.p.titulo)}</span><span class="t2">${esc((App.cliente(it.p.clienteId) || {}).nome || '')} · ${esc(App.rotuloEtapa(it.p.etapa))}</span></span></button>`).join('')
+            : `<button class="item" data-i="${i}"><span class="avatar quadrado" style="--t:32px;--cor-avatar:var(--interno);color:var(--suave)">${ic('pedidos', 16)}</span><span class="truncar"><span class="t1" style="display:block">${esc(it.p.titulo)}</span><span class="t2">${esc((App.cliente(it.p.clienteId) || {}).nome || '')} · ${esc(App.status(it.p).rotulo)}</span></span></button>`).join('')
             : `<div class="mudo pequeno" style="padding:12px 4px">${t ? 'Nada encontrado.' : 'Nenhum cliente ainda.'}</div>`;
           res.querySelectorAll('[data-i]').forEach(b => b.onclick = () => abrir(+b.dataset.i));
         };

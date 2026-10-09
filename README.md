@@ -36,6 +36,12 @@ Quando o pedido rola num grupo de DM, você pode cadastrar o grupo:
 
 O bot não consegue entrar em grupos, então o nome é você que define. O ID serve pra **Abrir no Discord** cair direto na conversa do grupo. O app também mostra a data em que o grupo foi criado.
 
+## Pedidos
+
+Cada pedido está **A fazer** ou **Feito**, e **Pago** ou **Não pago**. Só isso.
+Você arrasta as thumbs nos espaços do pedido, clica em **Marcar como feito** quando terminar
+e em **Marcar como pago** quando o cliente pagar. O **A receber** soma tudo que ainda não foi pago.
+
 ## "Falta responder"
 
 O app não lê suas DMs (o Discord não permite isso de forma segura).

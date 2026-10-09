@@ -48,8 +48,8 @@ html[data-tema="of"] .cl-corpo { padding: 14px 24px 18px; gap: 20px; }
 .cl-secao .bloco-cab > * { flex: none; white-space: nowrap; }
 .cl-cab-link { margin-left: auto; }
 
-/* fatos: no cube o Figma alinha à esquerda */
-.cl-fatos { --n: 4; }
+/* fatos (A receber · Paga via · Pedidos): no cube o Figma alinha à esquerda */
+.cl-fatos { --n: 3; }
 html[data-tema="cube"] .cl-fatos .fato { align-items: flex-start; text-align: left; padding: 11px 10px 12px 12px; border-radius: var(--raio-ctrl); gap: 5px; }
 html[data-tema="cube"] .cl-fatos .fato-valor { font-size: 14px; }
 .cl-fatos .fato-valor { max-width: 100%; }
@@ -64,7 +64,7 @@ html[data-tema="cube"] .cl-fato-btn:hover { background: var(--hover); box-shadow
 html[data-tema="of"] .cl-fato-btn:hover { background: var(--hover); }
 
 /* histórico */
-.cl-tabela { --colunas: minmax(0, 1fr) 92px 92px 100px; }
+.cl-tabela { --colunas: minmax(0, 1fr) 80px 92px 96px; }
 .cl-tabela .tabela-cab, .cl-tabela .linha { gap: 12px; }
 .cl-tabela .linha { padding-top: 11px; padding-bottom: 11px; }
 html[data-tema="cube"] .cl-tabela .linha.clicavel:hover { background: var(--ativo); }
@@ -73,7 +73,6 @@ html[data-tema="cube"] .cl-tabela .linha.clicavel:hover { background: var(--ativ
 .cl-ped-tit { font-size: var(--t-base); font-weight: var(--peso-forte); }
 .cl-ped-sub { margin-top: 3px; font-size: 12px; color: var(--mudo); font-weight: var(--peso-normal); }
 html[data-tema="of"] .cl-ped-sub { font-weight: 400; }
-.cl-etapa { display: flex; flex-direction: column; gap: 7px; font-size: 12px; font-weight: var(--peso-forte); }
 .cl-valor { font-size: 13px; font-weight: var(--peso-medio); }
 .cl-sem-pedidos { padding: 4px 2px; font-size: 13px; color: var(--mudo); }
 
@@ -83,32 +82,30 @@ html[data-tema="of"] .cl-ped-sub { font-weight: 400; }
 textarea.cl-notas-txt { flex: 1; min-height: 110px; resize: none; font-size: 14px; color: var(--suave); }
 html[data-tema="of"] textarea.cl-notas-txt { font-size: 13px; }
 
-/* ficha média (≈1280–1370px de janela): fatos em 2×2 e a tabela sem a coluna Valor
-   (o "a receber" segue nos fatos) */
+/* ficha média (≈1280–1370px de janela): a tabela sem a coluna Valor (o "a receber" segue nos fatos) */
 @container cl-ficha (max-width: 519px) {
-  .cl-fatos { --n: 2; }
-  html[data-tema="of"] .cl-fatos { row-gap: 10px; }
-  html[data-tema="of"] .cl-fatos .fato:nth-child(3) { border-left: 0; padding-left: 2px; }
-  .cl-tabela { --colunas: minmax(0, 1fr) 84px 100px; }
+  .cl-tabela { --colunas: minmax(0, 1fr) 80px 96px; }
   .cl-tabela .tabela-cab > :nth-child(3), .cl-tabela .cl-valor { display: none; }
 }
-/* ficha estreita (janela mínima): cada pedido vira 2 linhas — título | pagamento / etapa | valor.
-   As barrinhas saem (não cabem); a etapa continua no texto colorido */
+/* ficha estreita (janela mínima): cada pedido vira 2 linhas — título | pagamento / status | valor */
 @container cl-ficha (max-width: 389px) {
   .cl-ficha .capa { flex-wrap: wrap; align-content: flex-end; row-gap: 8px; }
   .cl-capa-txt { flex-basis: 100%; }
   .cl-ficha .capa, html[data-tema="of"] .cl-ficha .capa { padding-left: 18px; padding-right: 18px; }
   html[data-tema="cube"] .cl-ficha .capa h2 { font-size: 22px; }
   .cl-corpo, html[data-tema="of"] .cl-corpo { padding-left: 16px; padding-right: 16px; }
-  .cl-secao .bloco-cab .contagem { display: none; }
+  /* 3 fatos não cabem lado a lado: "A receber" ocupa a linha de cima, Paga via | Pedidos embaixo */
+  .cl-fatos { --n: 2; }
+  .cl-fatos .fato:first-child { grid-column: 1 / -1; }
+  html[data-tema="of"] .cl-fatos { row-gap: 10px; }
+  html[data-tema="of"] .cl-fatos .fato:nth-child(2) { border-left: 0; padding-left: 2px; }
   .cl-tabela { --colunas: minmax(0, 1fr) auto; }
   .cl-tabela .tabela-cab { display: none; }
   .cl-tabela .linha { row-gap: 6px; column-gap: 8px; }
   html[data-tema="cube"] .cl-tabela .linha { padding-left: 10px; padding-right: 10px; }
   .cl-tabela .linha > :nth-child(1) { grid-area: 1 / 1; }
   .cl-tabela .linha > :nth-child(4) { grid-area: 1 / 2; justify-self: end; }
-  .cl-tabela .cl-etapa { grid-area: 2 / 1; }
-  .cl-tabela .cl-etapa .etapas-mini { display: none; }
+  .cl-tabela .cl-status { grid-area: 2 / 1; }
   .cl-tabela .cl-valor { display: block; grid-area: 2 / 2; justify-self: end; }
 }
 

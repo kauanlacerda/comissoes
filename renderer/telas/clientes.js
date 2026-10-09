@@ -50,8 +50,9 @@
   function itemLista(c, ativo) {
     const n = App.pedidosDoCliente(c.id).length;
     const falta = c.conversa.estado === 'falta';
-    const partes = [...(App.ehGrupo(c) ? ['Grupo'] : []), n ? plural(n, 'pedido', 'pedidos') : 'sem pedidos'];
-    if (falta && c.conversa.desde) partes.push(App.fmtHa(c.conversa.desde));
+    const ha = falta && c.conversa.desde ? App.fmtHa(c.conversa.desde) : '';
+    // esperando resposta, o tempo é o que importa: vem primeiro (a linha corta no fim) e substitui o "sem pedidos"
+    const partes = [ha, n ? plural(n, 'pedido', 'pedidos') : ha ? '' : 'sem pedidos'].filter(Boolean);
     return `<button class="item ${ativo ? 'ativo' : ''}" data-cliente="${esc(c.id)}"${ativo ? ' aria-current="true"' : ''}>
       ${UI.avatar({ tam: 34, img: c.avatar, nome: c.nome })}
       <span class="cl-item-txt"><span class="t1 truncar">${esc(c.nome)}</span><span class="t2 truncar">${esc(partes.join(' · '))}</span></span>
@@ -74,36 +75,21 @@
   // ======================================================================
   // Ficha (painel do meio)
   // ======================================================================
-  function chipCapa(c) {
-    const ps = App.pedidosDoCliente(c.id);
-    const prod = ps.filter(p => p.etapa === 'comecado').length;
-    const ativos = ps.filter(App.ativo).length;
-    if (prod) return `${prod} em produção`;
-    if (ativos) return plural(ativos, 'pedido ativo', 'pedidos ativos');
-    return 'sem pedidos ativos';
-  }
-
   // a receber do cliente: moeda principal primeiro; as outras vão no title
-  function aReceberCliente(c) {
-    const r = App.resumoCliente(c.id).aReceber || {};
+  function aReceberCliente(res) {
+    const r = res.aReceber || {};
     const principal = App.estado.config.moedaPadrao;
     const ent = Object.entries(r).filter(([, v]) => v > 0).sort((a, b) => (b[0] === principal) - (a[0] === principal));
     if (!ent.length) return null;
     return { texto: App.fmtValor(ent[0][1], ent[0][0]), todos: ent.map(([m, v]) => App.fmtValor(v, m)).join(' + '), mais: ent.length - 1 };
   }
 
-  function fatos(c) {
-    const res = App.resumoCliente(c.id);
-    const ar = aReceberCliente(c);
-    const media = res.ajustesMedia;
-    const ajustes = media == null ? '' : media === 0 ? 'nenhum' : `${App.fmtNum(Math.round(media * 10) / 10)} por pedido`;
+  function fatos(c, res) {
+    const ar = aReceberCliente(res);
     const traco = '<span class="apagado">—</span>';
-    // colunas no CSS (cl-fatos): viram 2×2 quando a ficha fica estreita
     return `<div class="fatos cl-fatos">
       <div class="fato"${ar ? ` title="${esc(ar.todos)}"` : ''}><span class="fato-rotulo">A receber</span>
         <span class="fato-valor truncar ${ar ? 'cl-receber' : ''}">${ar ? esc(ar.texto) + (ar.mais ? ` <span class="pequeno mudo">+${ar.mais}</span>` : '') : traco}</span></div>
-      <div class="fato"${media != null ? ' title="Média de rodadas de ajuste nos pedidos concluídos"' : ''}><span class="fato-rotulo">Ajustes</span>
-        <span class="fato-valor truncar">${ajustes ? esc(ajustes) : traco}</span></div>
       <button class="fato cl-fato-btn" data-pagavia title="Clique para editar como esse cliente paga"><span class="fato-rotulo">Paga via ${ic('lapis', 11, 2.4)}</span>
         <span class="fato-valor truncar">${c.pagaVia ? esc(c.pagaVia) : traco}</span></button>
       <div class="fato"><span class="fato-rotulo">Pedidos</span><span class="fato-valor">${res.total}</span></div>
@@ -111,14 +97,12 @@
   }
 
   function linhaHistorico(p) {
-    const idx = App.indiceEtapa(p.etapa);
-    const fim = p.etapa === 'pago';
-    const barras = App.ETAPAS.map((e, i) => `<span class="${fim || i < idx ? 'feito' : i === idx ? 'atual' : ''}"></span>`).join('');
+    const st = App.status(p);
     const pg = App.pagamento(p);
     const sub = [App.fmtMesAno(p.criadoEm), p.jogo].filter(Boolean).join(' · ');
     return `<div class="linha clicavel" data-pedido="${esc(p.id)}" role="button" tabindex="0" title="Abrir pedido">
       <div class="cl-cel"><div class="cl-ped-tit truncar">${esc(p.titulo)}</div><div class="cl-ped-sub truncar">${esc(sub)}</div></div>
-      <div class="cl-cel cl-etapa"><div class="etapas-mini">${barras}</div><span class="truncar ${fim ? 'cor-verde' : 'cor-azul'}">${fim ? 'Concluído' : esc(App.rotuloEtapa(p.etapa))}</span></div>
+      <div class="cl-cel cl-status">${UI.pill(st.rotulo, st.tipo)}</div>
       <div class="cl-cel cl-valor truncar">${p.valor ? esc(App.fmtValor(p.valor, p.moeda)) : '<span class="apagado">—</span>'}</div>
       <div class="cl-cel">${UI.pill(pg.rotulo, pg.tipo)}</div>
     </div>`;
@@ -126,20 +110,21 @@
 
   function renderFicha(c) {
     const ps = App.pedidosDoCliente(c.id);
+    const res = App.resumoCliente(c.id);
     const sub = [arroba(c), c.criadoEm ? 'cliente desde ' + App.fmtMesAno(c.criadoEm) : ''].filter(Boolean).join(' · ');
     // rolagem guardada por cliente: abrir outro cliente começa do topo
     return `<div class="bloco sem-pad cresce cl-ficha" data-rolagem="ficha-${esc(c.id)}">
       <div class="capa cl-capa" style="--cor-capa:${corCapa(c)}">
         <div class="cl-capa-txt"><h2 class="truncar" title="${esc(c.nome)}">${esc(c.nome)}</h2><div class="cl-capa-sub truncar">${esc(sub)}</div></div>
-        <span class="chip">${esc(chipCapa(c))}</span>
+        ${res.aFazer ? `<span class="chip">${res.aFazer} a fazer</span>` : ''}
       </div>
       <div class="cl-corpo">
-        ${fatos(c)}
+        ${fatos(c, res)}
         <section class="cl-secao">
-          <div class="bloco-cab"><h3 class="titulo-bloco">Histórico</h3>${ps.length ? `<span class="contagem">${plural(ps.length, 'pedido', 'pedidos')}</span>` : ''}
+          <div class="bloco-cab"><h3 class="titulo-bloco">Histórico</h3>
             <button class="link cl-cab-link" data-novo-pedido>${ic('mais', 14, 2.4)}Novo pedido</button></div>
           ${ps.length ? `<div class="tabela cl-tabela">
-            <div class="tabela-cab"><span class="sobrelinha">Pedido</span><span class="sobrelinha">Etapa</span><span class="sobrelinha">Valor</span><span class="sobrelinha">Pagamento</span></div>
+            <div class="tabela-cab"><span class="sobrelinha">Pedido</span><span class="sobrelinha">Status</span><span class="sobrelinha">Valor</span><span class="sobrelinha">Pagamento</span></div>
             <div class="lista">${ps.map(linhaHistorico).join('')}</div>
           </div>` : '<div class="cl-sem-pedidos">Nenhum pedido ainda</div>'}
         </section>

@@ -9,20 +9,11 @@
   App.api = window.api || criarApiSimulada();
 
   // ---------- Constantes ----------
-  App.ETAPAS = [
-    { id: 'aceito', rotulo: 'Aceito' },
-    { id: 'comecado', rotulo: 'Começado' },
-    { id: 'entregue', rotulo: 'Entregue' },
-    { id: 'aprovado', rotulo: 'Aprovado' },
-    { id: 'pago', rotulo: 'Pago' }
-  ];
-  App.GRUPOS = [
-    { id: 'aceitos', rotulo: 'Aceitos', cor: 'var(--azul-texto)', etapa: 'aceito' },
-    { id: 'producao', rotulo: 'Em produção', cor: 'var(--amarelo)', etapa: 'comecado' },
-    { id: 'entregues', rotulo: 'Entregues', cor: 'var(--verde)', etapa: 'entregue' },
-    { id: 'aguardando', rotulo: 'Aguardando pagamento', cor: 'var(--mudo)', etapa: 'aprovado' },
-    { id: 'concluidos', rotulo: 'Concluídos', cor: 'var(--apagado)', etapa: 'pago' }
-  ];
+  // Pedido: ou está feito ou não está. Pagamento: pago ou não pago. Nada de etapas.
+  App.STATUS = {
+    aFazer: { id: 'aFazer', rotulo: 'A fazer', tipo: 'azul' },
+    feito: { id: 'feito', rotulo: 'Feito', tipo: 'verde' }
+  };
   App.MOEDAS = ['Robux', 'R$', 'US$'];
   const CONFIG_PADRAO = {
     tema: 'cube', nome: '', vagas: 3, ocupado: false, prazoAlertaDias: 2, moedaPadrao: 'Robux',
@@ -68,11 +59,20 @@
       pedidos: (Array.isArray(e.pedidos) ? e.pedidos : []).filter(ehObjeto).map(p => {
         const qtd = Math.max(1, Math.min(12, parseInt(p.qtd, 10) || 1));
         const entregas = Array.from({ length: qtd }, (_, i) => (p.entregas && p.entregas[i]) || null);
+        const valor = Math.max(0, +p.valor || 0);
+        // dados da versão com etapas: entregue/aprovado/pago = feito; pago = etapa 'pago' ou recebeu tudo
+        const feito = typeof p.feito === 'boolean' ? p.feito : ['entregue', 'aprovado', 'pago'].includes(p.etapa);
+        const pago = typeof p.pago === 'boolean' ? p.pago : (p.etapa === 'pago' || (valor > 0 && (+p.recebido || 0) >= valor));
+        // pedidos de ajuste antigos não se perdem: vão pro fim das notas
+        let notas = typeof p.notas === 'string' ? p.notas : '';
+        if (Array.isArray(p.ajustes) && p.ajustes.length && !notas.includes('Ajustes pedidos:')) {
+          notas = (notas ? notas + '\n\n' : '') + 'Ajustes pedidos:\n' + p.ajustes.map(a => '- ' + String((a && a.texto) || '').trim()).filter(l => l !== '- ').join('\n');
+        }
         return {
           id: p.id || uid(), criadoEm: p.criadoEm || agoraISO(), clienteId: p.clienteId || '', titulo: p.titulo || 'Pedido', jogo: p.jogo || '',
-          qtd, etapa: App.ETAPAS.some(x => x.id === p.etapa) ? p.etapa : 'aceito', valor: +p.valor || 0, moeda: App.MOEDAS.includes(p.moeda) ? p.moeda : 'Robux',
-          recebido: +p.recebido || 0, prazo: p.prazo || '', rodada: Math.max(1, parseInt(p.rodada, 10) || 1), ajustes: Array.isArray(p.ajustes) ? p.ajustes : [],
-          entregas, notas: p.notas || '', etapaEm: p.etapaEm || {}, concluidoEm: p.concluidoEm || ''
+          qtd, valor, moeda: App.MOEDAS.includes(p.moeda) ? p.moeda : 'Robux',
+          feito, feitoEm: p.feitoEm || (feito ? (p.concluidoEm || '') : ''), pago, pagoEm: p.pagoEm || '',
+          prazo: p.prazo || '', entregas, notas
         };
       })
     };
@@ -99,7 +99,7 @@
   App.redesenhar = () => emitir();
 
   // ---------- Navegação ----------
-  // App.ir('pedidos', pedidoId, { grupo: 'producao' }) — extra vai junto na rota
+  // App.ir('pedidos', pedidoId, { grupo: 'aFazer' }) — extra vai junto na rota
   App.ir = (tela, id = null, extra = {}) => { App.rota = { tela, id, ...extra }; UI.fecharMenu(); emitir(); const a = document.getElementById('area'); if (a) a.scrollTop = 0; };
   App.telas = {};   // cada tela se registra aqui (ver docs/CONTRATO.md)
   App.modais = {};  // modais compartilhados (novoCliente, novoPedido, ...)
@@ -168,35 +168,33 @@
   App.cliente = (id) => App.estado.clientes.find(c => c.id === id) || null;
   App.pedido = (id) => App.estado.pedidos.find(p => p.id === id) || null;
   App.pedidosDoCliente = (id) => App.estado.pedidos.filter(p => p.clienteId === id).sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
-  App.ativo = (p) => p.etapa !== 'pago';
+  // "ativo" = ainda pede algo de você: fazer ou receber
+  App.ativo = (p) => !(p.feito && (p.pago || !(+p.valor > 0)));
   App.pedidosAtivos = () => App.estado.pedidos.filter(App.ativo);
-  App.indiceEtapa = (etapa) => App.ETAPAS.findIndex(e => e.id === etapa);
-  App.rotuloEtapa = (etapa) => (App.ETAPAS.find(e => e.id === etapa) || {}).rotulo || '';
-  App.grupoDe = (p) => (App.GRUPOS.find(g => g.etapa === p.etapa) || App.GRUPOS[0]);
-  // pagamento: { chave: 'sem'|'nao'|'metade'|'parcial'|'pago', rotulo, tipo (classe de pill) }
+  const porPrazo = (a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999') || (a.criadoEm || '').localeCompare(b.criadoEm || '');
+  App.pedidosAFazer = () => App.estado.pedidos.filter(p => !p.feito).sort(porPrazo);
+  App.pedidosFaltaPagar = () => App.estado.pedidos.filter(p => p.feito && !p.pago && +p.valor > 0).sort(porPrazo);
+  App.pedidosConcluidos = () => App.estado.pedidos.filter(p => !App.ativo(p)).sort((a, b) => (b.feitoEm || b.criadoEm || '').localeCompare(a.feitoEm || a.criadoEm || ''));
+  App.status = (p) => (p.feito ? App.STATUS.feito : App.STATUS.aFazer);
+  // pagamento: { chave: 'sem'|'nao'|'pago', rotulo, tipo (classe de pill) }
   App.pagamento = (p) => {
-    const v = +p.valor || 0, r = +p.recebido || 0;
-    if (v <= 0) return { chave: 'sem', rotulo: 'Sem valor', tipo: 'neutra' };
-    if (r >= v) return { chave: 'pago', rotulo: 'Pago', tipo: 'verde' };
-    if (r <= 0) return { chave: 'nao', rotulo: 'Não pago', tipo: 'neutra' };
-    // em Robux a "metade" é arredondada pra inteiro (1501 → 750 ou 751)
-    if (Math.abs(r - v / 2) < (p.moeda === 'Robux' ? 0.51 : 0.01)) return { chave: 'metade', rotulo: 'Metade paga', tipo: 'amarelo' };
-    return { chave: 'parcial', rotulo: 'Parcial', tipo: 'amarelo' };
+    if (!(+p.valor > 0)) return { chave: 'sem', rotulo: 'Sem valor', tipo: 'neutra' };
+    return p.pago ? { chave: 'pago', rotulo: 'Pago', tipo: 'verde' } : { chave: 'nao', rotulo: 'Não pago', tipo: 'neutra' };
   };
-  App.falta = (p) => Math.max(0, (+p.valor || 0) - (+p.recebido || 0));
+  App.falta = (p) => (p.pago ? 0 : Math.max(0, +p.valor || 0));
   App.faltaResponder = () => App.estado.clientes.filter(c => c.conversa.estado === 'falta').sort((a, b) => (a.conversa.desde || '').localeCompare(b.conversa.desde || ''));
   App.respondidos = () => App.estado.clientes.filter(c => c.conversa.estado !== 'falta').sort((a, b) => (b.conversa.desde || '').localeCompare(a.conversa.desde || ''));
-  App.vagas = () => ({ usadas: App.estado.pedidos.filter(p => p.etapa === 'comecado').length, total: App.estado.config.vagas || 3 });
-  // a receber por moeda, só pedidos ativos
+  App.vagas = () => ({ usadas: App.pedidosAFazer().length, total: App.estado.config.vagas || 3 });
+  // a receber por moeda: tudo que tem valor e ainda não foi pago (feito ou não)
   App.aReceber = () => {
     const porMoeda = {}; let pedidos = 0;
-    for (const p of App.pedidosAtivos()) { const f = App.falta(p); if (f > 0) { porMoeda[p.moeda] = (porMoeda[p.moeda] || 0) + f; pedidos++; } }
+    for (const p of App.estado.pedidos) { const f = App.falta(p); if (f > 0) { porMoeda[p.moeda] = (porMoeda[p.moeda] || 0) + f; pedidos++; } }
     return { porMoeda, pedidos };
   };
-  const emAberto = (p) => p.etapa === 'aceito' || p.etapa === 'comecado';
-  App.venceEmBreve = () => App.pedidosAtivos().filter(p => emAberto(p) && p.prazo && App.diasAte(p.prazo) >= 0 && App.diasAte(p.prazo) <= (App.estado.config.prazoAlertaDias ?? 2)).sort((a, b) => a.prazo.localeCompare(b.prazo));
-  App.atrasados = () => App.pedidosAtivos().filter(p => emAberto(p) && p.prazo && App.diasAte(p.prazo) < 0).sort((a, b) => a.prazo.localeCompare(b.prazo));
-  App.proximasEntregas = () => App.pedidosAtivos().filter(p => emAberto(p) && p.prazo).sort((a, b) => a.prazo.localeCompare(b.prazo));
+  // prazo só importa enquanto não está feito
+  App.venceEmBreve = () => App.pedidosAFazer().filter(p => p.prazo && App.diasAte(p.prazo) >= 0 && App.diasAte(p.prazo) <= (App.estado.config.prazoAlertaDias ?? 2));
+  App.atrasados = () => App.pedidosAFazer().filter(p => p.prazo && App.diasAte(p.prazo) < 0);
+  App.proximasEntregas = () => App.pedidosAFazer().filter(p => p.prazo);
   App.entreguesNoPedido = (p) => p.entregas.filter(Boolean).length;
   App.alertas = () => {
     const a = [];
@@ -208,11 +206,9 @@
   // estatísticas do cliente
   App.resumoCliente = (id) => {
     const ps = App.pedidosDoCliente(id);
-    const fechados = ps.filter(p => p.etapa === 'pago');
-    const ajustes = fechados.length ? fechados.reduce((s, p) => s + (p.rodada - 1), 0) / fechados.length : null;
     const porMoeda = {};
-    for (const p of ps) { const f = App.falta(p); if (f > 0 && App.ativo(p)) porMoeda[p.moeda] = (porMoeda[p.moeda] || 0) + f; }
-    return { total: ps.length, ativos: ps.filter(App.ativo).length, concluidos: fechados.length, ajustesMedia: ajustes, aReceber: porMoeda };
+    for (const p of ps) { const f = App.falta(p); if (f > 0) porMoeda[p.moeda] = (porMoeda[p.moeda] || 0) + f; }
+    return { total: ps.length, aFazer: ps.filter(p => !p.feito).length, feitos: ps.filter(p => p.feito).length, aReceber: porMoeda };
   };
 
   // ---------- Ações (únicos pontos que mudam dados) ----------
@@ -237,13 +233,15 @@
       ids.forEach(pid => { try { App.api.arquivos.removerPedido(pid); } catch {} });
     },
     marcarConversa(id, estado) { App.mudar(e => { const c = e.clientes.find(x => x.id === id); if (c) c.conversa = { estado: estado === 'falta' ? 'falta' : 'respondido', desde: agoraISO() }; }); },
+    // d = { clienteId, titulo, jogo, qtd, valor, moeda, prazo, feito, pago, notas }
     novoPedido(d) {
       const qtd = Math.max(1, Math.min(12, parseInt(d.qtd, 10) || 1));
+      const agora = agoraISO();
       const p = {
-        id: uid(), criadoEm: agoraISO(), clienteId: d.clienteId, titulo: (d.titulo || 'Pedido').trim(), jogo: (d.jogo || '').trim(), qtd,
-        etapa: d.etapa && App.ETAPAS.some(x => x.id === d.etapa) ? d.etapa : 'aceito', valor: +d.valor || 0, moeda: App.MOEDAS.includes(d.moeda) ? d.moeda : App.estado.config.moedaPadrao,
-        recebido: Math.min(+d.recebido || 0, +d.valor || 0), prazo: d.prazo || '', rodada: 1, ajustes: [], entregas: Array(qtd).fill(null), notas: d.notas || '',
-        etapaEm: { aceito: agoraISO() }, concluidoEm: ''
+        id: uid(), criadoEm: agora, clienteId: d.clienteId, titulo: (d.titulo || 'Pedido').trim(), jogo: (d.jogo || '').trim(), qtd,
+        valor: Math.max(0, +d.valor || 0), moeda: App.MOEDAS.includes(d.moeda) ? d.moeda : App.estado.config.moedaPadrao,
+        feito: !!d.feito, feitoEm: d.feito ? agora : '', pago: !!d.pago, pagoEm: d.pago ? agora : '',
+        prazo: d.prazo || '', entregas: Array(qtd).fill(null), notas: d.notas || ''
       };
       App.mudar(e => { e.pedidos.push(p); });
       return p.id;
@@ -251,44 +249,20 @@
     atualizarPedido(id, patch, opts = {}) {
       App.mudar(e => {
         const p = e.pedidos.find(x => x.id === id); if (!p) return;
+        const eraFeito = p.feito, eraPago = p.pago;
         Object.assign(p, patch);
         if (patch.qtd != null) { const q = Math.max(1, Math.min(12, parseInt(patch.qtd, 10) || 1)); p.qtd = q; p.entregas = Array.from({ length: q }, (_, i) => p.entregas[i] || null); }
-        if (patch.recebido != null) p.recebido = Math.max(0, Math.min(+p.recebido || 0, +p.valor || 0));
-        autoConcluir(p);
+        if (patch.valor != null) p.valor = Math.max(0, +p.valor || 0);
+        if (patch.feito != null) { p.feito = !!p.feito; if (p.feito !== eraFeito) p.feitoEm = p.feito ? agoraISO() : ''; }
+        if (patch.pago != null) { p.pago = !!p.pago; if (p.pago !== eraPago) p.pagoEm = p.pago ? agoraISO() : ''; }
       }, opts);
     },
-    mudarEtapa(id, etapa) {
-      App.mudar(e => {
-        const p = e.pedidos.find(x => x.id === id); if (!p || !App.ETAPAS.some(x => x.id === etapa)) return;
-        p.etapa = etapa; p.etapaEm = { ...(p.etapaEm || {}), [etapa]: agoraISO() };
-        if (etapa === 'pago') { p.recebido = p.valor; p.concluidoEm = agoraISO(); } else p.concluidoEm = '';
-        autoConcluir(p);
-      });
-    },
-    registrarPagamento(id, quantia) {
-      App.mudar(e => {
-        const p = e.pedidos.find(x => x.id === id); if (!p) return;
-        p.recebido = Math.max(0, Math.min(+p.valor || 0, (+p.recebido || 0) + (+quantia || 0)));
-        autoConcluir(p);
-      });
-    },
-    pedirAjuste(id, texto) {
-      App.mudar(e => {
-        const p = e.pedidos.find(x => x.id === id); if (!p) return;
-        p.ajustes.push({ em: agoraISO(), rodada: p.rodada, texto: String(texto || '').trim() });
-        p.rodada += 1; p.etapa = 'comecado'; p.etapaEm = { ...(p.etapaEm || {}), comecado: agoraISO() }; p.concluidoEm = '';
-      });
-    },
+    marcarFeito(id, sim = true) { App.acoes.atualizarPedido(id, { feito: !!sim }); },
+    marcarPago(id, sim = true) { App.acoes.atualizarPedido(id, { pago: !!sim }); },
     definirEntrega(id, indice, arquivo) { App.mudar(e => { const p = e.pedidos.find(x => x.id === id); if (p && indice >= 0 && indice < p.qtd) p.entregas[indice] = arquivo; }); },
     removerPedido(id) { App.mudar(e => { e.pedidos = e.pedidos.filter(p => p.id !== id); }); try { App.api.arquivos.removerPedido(id); } catch {} },
     configurar(patch) { App.mudar(e => { Object.assign(e.config, patch); }); }
   };
-  // aprovado + tudo pago → conclui sozinho
-  function autoConcluir(p) {
-    if (p.etapa === 'aprovado' && (+p.valor || 0) > 0 && (+p.recebido || 0) >= (+p.valor || 0)) {
-      p.etapa = 'pago'; p.etapaEm = { ...(p.etapaEm || {}), pago: agoraISO() }; p.concluidoEm = agoraISO();
-    }
-  }
 
   // ---------- Ações de alto nível reutilizadas por várias telas ----------
   App.ehGrupo = (c) => !!c && c.tipo === 'grupo';
@@ -362,16 +336,16 @@
     const voidc = mk('Void', 'voidrbx', '712938475612938476', false, 1440);
     const panda = mk('PixelPanda', 'pixelpanda', '812938475612938477', false, 2880);
     const zero = mk('Zero', 'zeroping', '912938475612938478', false, 20);
-    const ped = (cli, titulo, jogo, qtd, etapa, valor, recebido, prazo, rodada = 1) => ({ id: uid(), criadoEm: ha(60 * 24 * 5), clienteId: cli.id, titulo, jogo, qtd, etapa, valor, moeda: 'Robux', recebido, prazo, rodada, ajustes: [], entregas: Array(qtd).fill(null), notas: '', etapaEm: {}, concluidoEm: etapa === 'pago' ? ha(60 * 24 * 20) : '' });
+    const ped = (cli, titulo, jogo, qtd, feito, valor, pago, prazo) => ({ id: uid(), criadoEm: ha(60 * 24 * 5), clienteId: cli.id, titulo, jogo, qtd, valor, moeda: 'Robux', feito, feitoEm: feito ? ha(60 * 24 * 2) : '', pago, pagoEm: pago ? ha(60 * 24) : '', prazo, entregas: Array(qtd).fill(null), notas: '' });
     App.estado.clientes = [luna, kaio, nexus, mira, voidc, panda, zero];
     App.estado.pedidos = [
-      ped(luna, 'Pack 4 thumbs', 'Lava Obby', 4, 'comecado', 4800, 2400, dia(2)),
-      ped(kaio, 'Ícone de jogo', '', 1, 'aceito', 1500, 0, dia(5)),
-      ped(nexus, 'Thumb + ícone', 'Tower Rush', 2, 'entregue', 3000, 3000, dia(-1)),
-      ped(mira, 'Pack 2 thumbs', 'Mine Sim', 2, 'comecado', 2400, 0, dia(11)),
-      ped(voidc, 'Banner animado', '', 1, 'aprovado', 3000, 0, dia(-2)),
-      ped(luna, 'Thumb única', 'Lava Obby', 1, 'pago', 1200, 1200, dia(-30)),
-      ped(luna, 'Ícone de jogo', '', 1, 'pago', 1500, 1500, dia(-60))
+      ped(luna, 'Pack 4 thumbs', 'Lava Obby', 4, false, 4800, false, dia(2)),
+      ped(kaio, 'Ícone de jogo', '', 1, false, 1500, false, dia(5)),
+      ped(nexus, 'Thumb + ícone', 'Tower Rush', 2, true, 3000, true, dia(-1)),
+      ped(mira, 'Pack 2 thumbs', 'Mine Sim', 2, false, 2400, false, dia(11)),
+      ped(voidc, 'Banner animado', '', 1, true, 3000, false, dia(-2)),
+      ped(luna, 'Thumb única', 'Lava Obby', 1, true, 1200, true, dia(-30)),
+      ped(luna, 'Ícone de jogo', '', 1, true, 1500, true, dia(-60))
     ];
     App.estado.config.nome = 'sak';
     salvar();

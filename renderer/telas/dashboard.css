@@ -1,5 +1,5 @@
 /* =========================================================================
-   Dashboard — só tokens. Estrutura comum + ajustes por modo.
+   Dashboard — só tokens. Estrutura comum + variações por modo.
    ========================================================================= */
 
 /* ---------- Resumo: cartões clicáveis ---------- */
@@ -68,33 +68,31 @@ html[data-tema="of"] .dash-nome { font-size: 13px; font-weight: 600; }
 html[data-tema="of"] .dash-sub { font-weight: 400; }
 html[data-tema="of"] .dash-sub.mudo { color: var(--mudo); }
 
-/* ---------- Comissões ---------- */
+/* ---------- Pedidos ---------- */
 .dash-com { display: flex; flex-direction: column; min-height: 0; container-type: inline-size; }
 html[data-tema="cube"] .dash-com { padding: 16px 14px 14px; }
 html[data-tema="cube"] .dash-com > .bloco-cab { padding: 0 4px 0 6px; margin-bottom: 14px; }
 html[data-tema="of"] .dash-com { padding: 16px 20px 8px; }
 .dash-direita { margin-left: auto; }
 
-.dash-tabela { --colunas: minmax(0, 1fr) 190px 110px 130px; flex: 1; min-height: 0; overflow-y: auto; }
+.dash-tabela { --colunas: minmax(0, 1fr) 130px 110px 120px; flex: 1; min-height: 0; overflow-y: auto; }
 /* janela estreita: colunas mais justas pra o nome do cliente não sumir */
 @container (max-width: 660px) {
-  .dash-tabela { --colunas: minmax(0, 1fr) 104px 88px 104px; }
+  .dash-tabela { --colunas: minmax(0, 1fr) 104px 84px 100px; }
   .dash-tabela .tabela-cab, .dash-tabela .linha { gap: 12px; }
   html[data-tema="cube"] .dash-tabela .linha { padding-left: 12px; padding-right: 10px; }
   html[data-tema="cube"] .dash-tabela .tabela-cab { padding-left: 12px; padding-right: 10px; }
 }
-/* bem estreito (cube no mínimo): some avatar e barrinhas, fica o nome da etapa colorido */
+/* bem estreito (cube no mínimo): some o avatar pra o nome caber */
 @container (max-width: 500px) {
-  .dash-tabela { --colunas: minmax(0, 1fr) 84px 88px 104px; }
-  .dash-tabela .dash-ped-cli > .avatar, .dash-tabela .etapas-mini { display: none; }
+  .dash-tabela { --colunas: minmax(0, 1fr) 96px 76px 92px; }
+  .dash-tabela .dash-ped-cli > .avatar { display: none; }
 }
 .dash-tabela .tabela-cab { position: sticky; top: 0; z-index: 1; background: var(--card); }
 html[data-tema="cube"] .dash-tabela .tabela-cab { padding-bottom: 8px; }
 html[data-tema="cube"] .dash-com-lista { gap: 10px; }
 .dash-ped { min-height: 0; }
 .dash-ped-cli { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.dash-etapa { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
-.dash-etapa-rot { font-size: 12px; font-weight: var(--peso-forte); }
 .dash-prazo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dash-prazo-1 { font-size: 13px; font-weight: 700; white-space: nowrap; }
 html[data-tema="of"] .dash-prazo-1 { font-weight: 600; }

@@ -50,7 +50,7 @@ Se precisar de algo que não existe na base, implemente localmente no seu arquiv
 - `render()` roda de novo a cada `App.mudar` (redesenha a tela toda). Elementos roláveis que devem manter a rolagem: `data-rolagem="nome-unico"`.
 - Enquanto a pessoa DIGITA (notas, campos), salve com `{ render: false }` (ex.: `App.acoes.atualizarCliente(id, { notas }, { render: false })`) senão o campo perde o foco.
 - **Segurança:** todo dado vindo de cliente/Discord/usuário passa por `esc()` antes de entrar no HTML. Nada de handler inline (`onclick="..."`) — a CSP bloqueia; use `montar()`.
-- Rota atual: `App.rota = { tela, id, ...extra }`. Navegar: `App.ir('pedidos', pedidoId)`, `App.ir('clientes', clienteId)`, `App.ir('pedidos', null, { grupo: 'producao' })`, `App.ir('config')`.
+- Rota atual: `App.rota = { tela, id, ...extra }`. Navegar: `App.ir('pedidos', pedidoId)`, `App.ir('clientes', clienteId)`, `App.ir('pedidos', null, { grupo: 'aFazer' })`, `App.ir('config')`.
 
 ## Dados (`App.estado`)
 ```js
@@ -58,20 +58,20 @@ config:  { tema:'cube'|'of', nome, vagas:3, ocupado:false, prazoAlertaDias:2, mo
 clientes: [{ id, criadoEm, nome /*apelido mostrado*/, tipo:'pessoa'|'grupo', canalId /*grupo de DM: ID do canal*/, discordId /*só pessoa*/, username, globalName, avatar /*url local ou ''*/, corPerfil /*'#hex' ou ''*/,
              contaCriada /*ISO*/, atualizadoEm, roblox: null | { id, username, displayName, avatar }, conversa: { estado:'falta'|'respondido', desde:ISO },
              notas, pagaVia }]
-pedidos:  [{ id, criadoEm, clienteId, titulo, jogo, qtd /*nº de entregas, 1–12*/, etapa:'aceito'|'comecado'|'entregue'|'aprovado'|'pago',
-             valor, moeda:'Robux'|'R$'|'US$', recebido, prazo:'AAAA-MM-DD'|'' , rodada /*começa em 1*/, ajustes:[{em, rodada, texto}],
-             entregas: [ {caminho,url} | null ] /*tamanho qtd*/, notas, etapaEm:{etapa:ISO}, concluidoEm }]
+pedidos:  [{ id, criadoEm, clienteId, titulo, jogo, qtd /*nº de thumbs a entregar, 1–12*/, valor, moeda:'Robux'|'R$'|'US$',
+             feito:boolean, feitoEm, pago:boolean, pagoEm, prazo:'AAAA-MM-DD'|'',
+             entregas: [ {caminho,url} | null ] /*tamanho qtd*/, notas }]
 ```
-Pagamento é paralelo à etapa (`recebido` vs `valor`). "Aprovado" + tudo pago vira "Pago" sozinho.
+**Simples de propósito:** o pedido está **Feito** ou **A fazer** (sem etapas, sem rodadas de ajuste). O pagamento é só **Pago / Não pago** (sem parcial). Os dois são independentes: dá pra estar feito e ainda não pago.
 
 ## API do núcleo (`App`)
-Seletores: `App.cliente(id)`, `App.pedido(id)`, `App.pedidosDoCliente(id)`, `App.pedidosAtivos()`, `App.ativo(p)`, `App.ETAPAS` [{id, rotulo}], `App.GRUPOS` [{id:'aceitos'|'producao'|'entregues'|'aguardando'|'concluidos', rotulo, cor, etapa}], `App.grupoDe(p)`, `App.indiceEtapa(etapa)`, `App.rotuloEtapa(etapa)`, `App.pagamento(p)` → `{chave:'sem'|'nao'|'metade'|'parcial'|'pago', rotulo, tipo /*classe da pill*/}`, `App.falta(p)` (quanto falta receber), `App.faltaResponder()` (clientes esperando, mais antigo primeiro), `App.respondidos()`, `App.vagas()` → `{usadas,total}`, `App.aReceber()` → `{porMoeda:{Robux:n,'R$':n}, pedidos:n}`, `App.venceEmBreve()`, `App.atrasados()`, `App.proximasEntregas()`, `App.entreguesNoPedido(p)`, `App.resumoCliente(id)` → `{total, ativos, concluidos, ajustesMedia|null, aReceber:{moeda:n}}`, `App.alertas()`.
+Seletores: `App.cliente(id)`, `App.pedido(id)`, `App.pedidosDoCliente(id)`, `App.STATUS` = {aFazer:{id,rotulo:'A fazer',tipo:'azul'}, feito:{id,rotulo:'Feito',tipo:'verde'}}, `App.status(p)` → um dos dois, `App.pedidosAFazer()` (não feitos, por prazo), `App.pedidosFaltaPagar()` (feitos, com valor, não pagos), `App.pedidosConcluidos()` (feitos e pagos/sem valor, mais recentes primeiro), `App.pedidosAtivos()`/`App.ativo(p)` (ainda pede algo: fazer OU receber), `App.pagamento(p)` → `{chave:'sem'|'nao'|'pago', rotulo, tipo /*classe da pill*/}`, `App.falta(p)` (valor se não pago, senão 0), `App.faltaResponder()` (clientes esperando, mais antigo primeiro), `App.respondidos()`, `App.vagas()` → `{usadas /*a fazer*/, total}`, `App.aReceber()` → `{porMoeda:{Robux:n,'R$':n}, pedidos:n}` (todo pedido com valor e não pago), `App.venceEmBreve()`, `App.atrasados()`, `App.proximasEntregas()` (só pedidos a fazer), `App.entreguesNoPedido(p)` (thumbs já colocadas), `App.resumoCliente(id)` → `{total, aFazer, feitos, aReceber:{moeda:n}}`, `App.alertas()`.
 
-Ações (únicas que mudam dados; todas salvam sozinhas): `App.acoes.novoCliente(d)`→id, `atualizarCliente(id, patch, opts)`, `removerCliente(id)`, `marcarConversa(id,'falta'|'respondido')`, `novoPedido(d)`→id (`d = {clienteId,titulo,jogo,qtd,valor,moeda,recebido,prazo,etapa}`), `atualizarPedido(id, patch, opts)`, `mudarEtapa(id, etapa)`, `registrarPagamento(id, quantia)`, `pedirAjuste(id, texto)`, `definirEntrega(id, indice, {caminho,url}|null)`, `removerPedido(id)`, `configurar(patch)`. `App.definirTema('cube'|'of')`.
+Ações (únicas que mudam dados; todas salvam sozinhas): `App.acoes.novoCliente(d)`→id, `atualizarCliente(id, patch, opts)`, `removerCliente(id)`, `marcarConversa(id,'falta'|'respondido')`, `novoPedido(d)`→id (`d = {clienteId,titulo,jogo,qtd,valor,moeda,prazo,feito,pago,notas}`), `atualizarPedido(id, patch, opts)`, `marcarFeito(id, sim)`, `marcarPago(id, sim)`, `definirEntrega(id, indice, {caminho,url}|null)`, `removerPedido(id)`, `configurar(patch)`. `App.definirTema('cube'|'of')`. NÃO existem mais: etapas (`App.ETAPAS`, `App.GRUPOS`, `mudarEtapa`), pagamento parcial (`recebido`, `registrarPagamento`) nem rodadas (`pedirAjuste`, `rodada`, `ajustes`).
 
 Utilidades: `App.hoje()`, `App.diasAte(ymd)`, `App.fmtDia(ymd)` 'dom, 11', `App.fmtDiaLongo(ymd)` 'domingo, 11', `App.fmtDataLonga(date)` '9 de outubro de 2026', `App.fmtDataCurta(iso)` '24 fev 2017', `App.fmtMesAno(iso)` 'ago 2026', `App.fmtPrazoRel(ymd)` 'em 2 dias'/'hoje'/'atrasado 1 dia', `App.fmtHa(iso)` 'há 3 h', `App.anos(iso)` '9 anos', `App.fmtValor(n, moeda)` '4.800 Robux'/'R$ 90', `App.fmtNum(n)`, `App.saudacao()`, `App.MES_LONGO` ['janeiro',...], `App.SEM` ['dom',...].
 Alto nível: `App.ehGrupo(c)`, `App.temDiscord(c)`, `App.abrirDiscord(cliente)` (grupo abre a conversa pelo canal), `App.copiar(texto, aviso)`, `App.atualizarDadosCliente(id)` (puxa Discord/Roblox de novo), `App.abrirBusca()`.
-Modais compartilhados ficam em `App.modais` (cada um definido pela tela dona): `novoCliente()` (clientes.js), `novoPedido(clienteId?)`, `editarPedido(id)`, `registrarPagamento(id)` (pedidos.js). Sempre cheque se existe antes de chamar.
+Modais compartilhados ficam em `App.modais` (cada um definido pela tela dona): `novoCliente()` (clientes.js), `novoPedido(clienteId?)`, `editarPedido(id)` (pedidos.js). Sempre cheque se existe antes de chamar.
 
 ## API do processo principal (`App.api`) — tudo assíncrono
 `App.api.discord.usuario(id)` → `{ok, dados:{id, username, globalName, avatar /*url local*/, corPerfil, contaCriada}, codigo?, erro?}` (codigo: 'id-invalido'|'sem-token'|'token-invalido'|'nao-encontrado'|'limite'|'rede'|'http').
@@ -90,7 +90,7 @@ Layout: `.bloco` (+`.sem-pad` `.rolar`), `.div-b/.div-t/.div-r/.div-l`, `.linha-
 Resumo: `.stats > .stat(.destaque) > .stat-texto > (.stat-rotulo [.ponto] | .stat-valor | .stat-legenda)` + `.stat-tile` (style `--cor:...`, só aparece no of) — escreva o rótulo ANTES do valor no HTML; o of reordena sozinho.
 Listas: `.lista > .linha(.clicavel)` (card no cube, linha fina no of), `.barra-status` (style `--cor`, só cube), `.ponto-status` (só of), `.tabela` + `.tabela-cab` + `.tabela .linha` com `style="--colunas: 1.4fr 190px 110px 130px"`. Itens selecionáveis: `.item(.ativo) > .t1/.t2`, rótulo de grupo `.grupo-rot.sobrelinha`.
 Avatares/pills: `.avatar`, `.ponto`, `.pill.(neutra|azul|verde|amarelo|vermelho)`, `.chip` (selo azul na capa).
-Etapas: `.etapas-mini > span(.feito|.atual)` ×5; `.etapas > button.etapa(.feito|.atual) > .barra + .nome`.
+Etapas: NÃO usar mais (`.etapas`/`.etapas-mini` ficam na base só por compatibilidade). Status = `UI.pill(App.status(p).rotulo, App.status(p).tipo)`.
 Botões: `.btn` + `.btn-primario` (ação principal, 1 por painel) | `.btn-acento` (secundária destacada: no of vira contorno azul) | `.btn-sec` (neutra) | `.btn-perigo` | `.btn-texto` (link de ação: RESPONDI) ; modificadores `.btn-icone .btn-peq .btn-bloco .btn-centro`; dica à direita `<span class="dica">`. `.btn-circ` (setas do calendário). Desabilitado: atributo `disabled`.
 Campos: `.campo > label + .input` (`input/select/textarea.input`), `.campo .ajuda`, `.linha-campos` (lado a lado), `.marcador` (checkbox com texto), `button.chave[aria-pressed]` (interruptor).
 Caixas: `.caixa` (interna: fundo no cube, contorno no of), `.caixa-alerta`, `.fatos[style=--n:3] > .fato > .fato-rotulo + .fato-valor` (rótulo antes; of reordena), `.capa[style=--cor-capa:#hex] > h2...` (capa com arte no cube; plana no of), `.perfil-topo[style=--cor-capa] > .capa-mini + .avatar`.

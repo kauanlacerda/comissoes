@@ -8,6 +8,15 @@ const path = require('path');
 
 const raiz = path.resolve(__dirname, '..');
 const dados = fs.mkdtempSync(path.join(os.tmpdir(), 'comissoes-teste-'));
+// dados no formato ANTIGO (etapas, pagamento parcial, rodadas) pra testar a migração
+fs.writeFileSync(path.join(dados, 'comissoes-dados.json'), JSON.stringify({
+  config: {}, clientes: [{ id: 'cli-velho', nome: 'Velho', conversa: { estado: 'falta', desde: new Date().toISOString() } }],
+  pedidos: [
+    { id: 'ped-velho-1', clienteId: 'cli-velho', titulo: 'Antigo pago', qtd: 2, etapa: 'pago', valor: 1000, recebido: 1000, ajustes: [{ texto: 'mais escuro' }] },
+    { id: 'ped-velho-2', clienteId: 'cli-velho', titulo: 'Antigo metade', qtd: 1, etapa: 'comecado', valor: 500, recebido: 250 },
+    { id: 'ped-velho-3', clienteId: 'cli-velho', titulo: 'Antigo aprovado', qtd: 1, etapa: 'aprovado', valor: 300, recebido: 0 }
+  ]
+}));
 const porta = 9241;
 const exe = path.join(raiz, 'node_modules', 'electron', 'dist', 'electron.exe');
 const espera = (ms) => new Promise(r => setTimeout(r, ms));
@@ -32,12 +41,19 @@ async function main() {
     await espera(1200);
 
     ok('ponte window.api existe', await ev('return !!window.api && App.noApp'));
+    const mig = await ev("return App.estado.pedidos.map(p => ({ id: p.id, feito: p.feito, pago: p.pago, notas: p.notas, temEtapa: 'etapa' in p || 'recebido' in p || 'rodada' in p }))");
+    const m1 = mig.find(p => p.id === 'ped-velho-1'), m2 = mig.find(p => p.id === 'ped-velho-2'), m3 = mig.find(p => p.id === 'ped-velho-3');
+    ok('migração: etapa pago → feito e pago', m1 && m1.feito === true && m1.pago === true);
+    ok('migração: ajustes antigos vão pras notas', m1 && /mais escuro/.test(m1.notas));
+    ok('migração: começado com metade → a fazer e não pago', m2 && m2.feito === false && m2.pago === false);
+    ok('migração: aprovado sem pagar → feito e não pago', m3 && m3.feito === true && m3.pago === false);
+    ok('migração: campos de etapa somem', mig.every(p => !p.temEtapa));
     ok('tela inicial renderizou', await ev("return document.querySelector('#lateral').children.length > 3"));
     // dados: salvar e ler de volta
     await ev("App.acoes.novoCliente({ nome: 'Teste', faltaResponder: true }); return true");
     await espera(500);
     const lido = await ev('const d = await window.api.dados.ler(); return d.clientes.length');
-    ok('dados salvos no disco e lidos de volta', lido === 1, 'clientes=' + lido);
+    ok('dados salvos no disco e lidos de volta', lido === 2, 'clientes=' + lido);
     ok('arquivo JSON criado', fs.existsSync(path.join(dados, 'comissoes-dados.json')));
     // Discord sem token
     const semToken = await ev("return await window.api.discord.usuario('284719306512384000')");
