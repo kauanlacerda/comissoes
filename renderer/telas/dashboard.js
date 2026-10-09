@@ -1,4 +1,4 @@
-// Tela inicial: resumo (4 números), calendário de prazos, clientes e pedidos em aberto.
+// Tela inicial: resumo (3 números), calendário de prazos, clientes e pedidos em aberto.
 // Mesmo HTML nos dois modos (cube / of); a diferença visual vem do CSS.
 (function () {
   const esc = UI.esc, ic = UI.icone;
@@ -26,12 +26,6 @@
 
   function resumo() {
     const cfg = App.estado.config;
-
-    // Falta responder
-    const falta = App.faltaResponder();
-    const legFalta = falta.length
-      ? `mais antigo: ${esc(falta[0].nome)}, ${esc(App.fmtHa(falta[0].conversa.desde))}`
-      : 'ninguém esperando';
 
     // A fazer: legenda = o prazo mais perto entre eles (já vem ordenado por prazo)
     const aFazer = App.pedidosAFazer();
@@ -76,7 +70,6 @@
       : 'Abrir pedidos';
 
     return `<div class="stats">
-      ${stat({ rotulo: 'Falta responder', ponto: VERMELHO, valor: falta.length, legenda: legFalta, tile: 'msg', cor: VERMELHO, ir: falta.length ? 'falta' : '', titulo: falta.length ? 'Abrir quem espera há mais tempo' : '' })}
       ${stat({ rotulo: 'A fazer', ponto: 'var(--amarelo)', valor: aFazer.length, legenda: legFazer, tile: 'pincel', cor: 'var(--amarelo)', ir: aFazer.length ? 'aFazer' : '', titulo: aFazer.length ? 'Ver pedidos a fazer' : '' })}
       ${stat({ rotulo: 'Vence em breve', valor: breve.length + atras.length, legenda: legBreve, tile: 'calendario', cor: atras.length ? VERMELHO : 'var(--azul)', ir: (atras[0] || breve[0]) ? 'prazo' : '', titulo: `Prazos de hoje até ${dias} ${plural(dias, 'dia', 'dias')}${atras.length ? ', mais os atrasados' : ''}` })}
       ${stat({ rotulo: 'A receber', valor: esc(App.fmtNum(rec.porMoeda[principal] || 0)), legenda: legRec, tile: 'moeda', cor: VERDE, destaque: true, ir: 'pedidos', titulo: tituloRec })}
@@ -143,23 +136,27 @@
   }
 
   // ---------- 2b) Clientes ----------
+  // o que resume o cliente numa linha: o que tem a fazer, senão quanto já pediu
+  function legendaCliente(c) {
+    const r = App.resumoCliente(c.id);
+    const tipo = App.ehServidor(c) ? 'servidor' : App.ehGrupo(c) ? 'grupo' : '';
+    const ped = r.aFazer ? `${r.aFazer} a fazer` : r.total ? `${r.total} ${plural(r.total, 'pedido', 'pedidos')}` : 'sem pedidos';
+    return { texto: [tipo, ped].filter(Boolean).join(' · '), ativo: r.aFazer > 0 };
+  }
+
   function clientes() {
-    const lista = [...App.faltaResponder(), ...App.respondidos()];
+    const lista = App.clientesRecentes();
     const corpo = lista.length
       ? `<div class="lista dash-cli-lista" data-rolagem="dash-clientes">${lista.map(c => {
-          const f = c.conversa.estado === 'falta';
-          const status = f ? 'Esperando ' + App.fmtHa(c.conversa.desde) : 'Respondido';
-          // a linha não é um botão: dentro dela há dois botões irmãos (abrir ficha | Respondi)
+          const l = legendaCliente(c);
           return `<div class="linha clicavel dash-cli" data-linha-cliente="${esc(c.id)}">
-            <span class="barra-status" style="--cor:${f ? VERMELHO : VERDE}"></span>
-            <button class="dash-cli-abrir" aria-label="${esc(`${c.nome}: ${status.toLowerCase()}`)}">
-              ${UI.avatar({ tam: 32, img: c.avatar, nome: c.nome })}
+            <button class="dash-cli-abrir" aria-label="${esc(`${c.nome}: ${l.texto}`)}">
+              ${UI.avatar({ tam: 32, img: c.avatar, nome: c.nome, quadrado: App.ehServidor(c) })}
               <span class="dash-cli-txt">
-                <span class="dash-nome"><span class="truncar">${esc(c.nome)}</span><span class="ponto-status">${UI.ponto(f ? VERMELHO : VERDE)}</span></span>
-                <span class="dash-sub truncar ${f ? 'cor-vermelho' : 'mudo'}">${esc(status)}</span>
+                <span class="dash-nome"><span class="truncar">${esc(c.nome)}</span></span>
+                <span class="dash-sub truncar ${l.ativo ? '' : 'mudo'}">${esc(l.texto)}</span>
               </span>
             </button>
-            <button class="btn-texto" data-conversa="${esc(c.id)}" data-estado="${f ? 'respondido' : 'falta'}" title="${f ? 'Marcar que você já respondeu' : 'Marcar que chegou mensagem nova'}">${f ? 'Respondi' : 'Nova msg'}</button>
           </div>`;
         }).join('')}</div>`
       : UI.vazio({
@@ -182,7 +179,7 @@
     return [...App.pedidosAFazer(), ...pagar];
   }
 
-  function linhaPedido(p, esperando) {
+  function linhaPedido(p) {
     const c = App.cliente(p.clienteId) || { nome: 'Cliente removido', avatar: '' };
 
     let prazo1, prazo2 = '', prazoCls = 'mudo';
@@ -198,9 +195,9 @@
     const st = App.status(p), pg = App.pagamento(p);
     return `<div class="linha clicavel dash-ped" data-pedido="${esc(p.id)}" role="button" tabindex="0">
       <div class="dash-ped-cli">
-        ${UI.avatar({ tam: 36, img: c.avatar, nome: c.nome })}
+        ${UI.avatar({ tam: 36, img: c.avatar, nome: c.nome, quadrado: App.ehServidor(c) })}
         <div class="dash-cli-txt">
-          <div class="dash-nome"><span class="truncar">${esc(c.nome)}</span>${esperando ? `<span class="dash-espera" title="Esperando sua resposta">${UI.ponto(VERMELHO)}</span>` : ''}</div>
+          <div class="dash-nome"><span class="truncar">${esc(c.nome)}</span></div>
           <div class="dash-sub mudo truncar" title="${esc(p.jogo ? `${p.titulo} · ${p.jogo}` : p.titulo)}">${esc(p.titulo)}</div>
         </div>
       </div>
@@ -215,12 +212,11 @@
 
   function pedidos() {
     const lista = pedidosEmAberto();
-    const esperando = new Set(App.faltaResponder().map(c => c.id));
     const temClientes = App.estado.clientes.length > 0;
     const corpo = lista.length
       ? `<div class="tabela dash-tabela" data-rolagem="dash-pedidos">
           <div class="tabela-cab"><span class="sobrelinha">Cliente</span><span class="sobrelinha">Prazo</span><span class="sobrelinha">Status</span><span class="sobrelinha">Pagamento</span></div>
-          <div class="lista dash-com-lista">${lista.map(p => linhaPedido(p, esperando.has(p.clienteId))).join('')}</div>
+          <div class="lista dash-com-lista">${lista.map(p => linhaPedido(p)).join('')}</div>
         </div>`
       : `<div class="dash-vazio">${temClientes
           ? UI.vazio({ icone: 'pedidos', titulo: 'Nada pendente', texto: 'O que falta fazer ou receber aparece aqui. Quando alguém fechar um pedido, é só registrar.', acao: `<button class="btn btn-primario btn-peq" data-novo-pedido>${ic('mais', 15, 2.4)}Novo pedido</button>` })
@@ -237,7 +233,7 @@
     cheia: false,
     cabecalho() {
       const nome = (App.estado.config.nome || '').trim();
-      return { titulo: `${App.saudacao()}, ${nome || 'você'}`, sub: App.fmtDataLonga(), pilha: true };
+      return { titulo: `${App.saudacao()}, ${nome || 'você'}`, sub: App.fmtDataLonga() };
     },
     render() {
       return `${resumo()}
@@ -257,8 +253,7 @@
 
       area.querySelectorAll('[data-ir-stat]').forEach(el => ativar(el, () => {
         const t = el.dataset.irStat;
-        if (t === 'falta') { const c = App.faltaResponder()[0]; if (c) App.ir('clientes', c.id); }
-        else if (t === 'aFazer') App.ir('pedidos', null, { grupo: 'aFazer' });
+        if (t === 'aFazer') App.ir('pedidos', null, { grupo: 'aFazer' });
         else if (t === 'prazo') { const p = App.atrasados()[0] || App.venceEmBreve()[0]; if (p) App.ir('pedidos', p.id); }
         else App.ir('pedidos');
       }));
@@ -266,15 +261,8 @@
       const cal = area.querySelector('[data-cal]');
       if (cal) ligarCalendario(cal);
 
-      // clique em qualquer parte da linha (fora do "Respondi") abre a ficha; o botão interno cuida do teclado
-      area.querySelectorAll('[data-linha-cliente]').forEach(el => el.addEventListener('click', (e) => {
-        if (e.target.closest('[data-conversa]')) return;
-        App.ir('clientes', el.dataset.linhaCliente);
-      }));
-      area.querySelectorAll('[data-conversa]').forEach(b => b.addEventListener('click', (e) => {
-        e.stopPropagation();
-        App.acoes.marcarConversa(b.dataset.conversa, b.dataset.estado);
-      }));
+      // clique em qualquer parte da linha abre a ficha; o botão interno cuida do teclado
+      area.querySelectorAll('[data-linha-cliente]').forEach(el => el.addEventListener('click', () => App.ir('clientes', el.dataset.linhaCliente)));
 
       area.querySelectorAll('[data-pedido]').forEach(el => ativar(el, () => App.ir('pedidos', el.dataset.pedido)));
       const abrir = area.querySelector('[data-abrir-pedidos]');

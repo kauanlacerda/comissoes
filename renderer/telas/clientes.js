@@ -1,4 +1,5 @@
-// Tela Clientes: lista (falta responder / respondidos), ficha do cliente e perfil com Discord/Roblox.
+// Tela Clientes: lista (mais movimentados primeiro), ficha do cliente e perfil com Discord/Roblox.
+// Cliente pode ser uma pessoa (ID do usuário), um grupo de DM (ID do canal) ou um servidor (ex.: de agência).
 // Também define o modal compartilhado App.modais.novoCliente().
 // Mesmo HTML nos dois modos (cube / of); a diferença visual vem do CSS.
 (function () {
@@ -24,13 +25,26 @@
   const corCapa = (c) => corValida(c.corPerfil) || UI.corDe(c.nome);
   const temRoblox = (c) => !!(c.roblox && (c.roblox.username || c.roblox.id));
   // '@usuario' | ID salvo mas ainda sem os dados do Discord | sem Discord
-  const arroba = (c) => (App.ehGrupo(c) ? 'grupo de DM' : c.username ? '@' + c.username : c.discordId ? 'sem dados do Discord' : 'sem Discord');
-  const idDiscordDe = (c) => (App.ehGrupo(c) ? c.canalId : c.discordId);
+  const arroba = (c) => (App.ehServidor(c) ? 'servidor' : App.ehGrupo(c) ? 'grupo de DM' : c.username ? '@' + c.username : c.discordId ? 'sem dados do Discord' : 'sem Discord');
+  const idDiscordDe = (c) => (App.ehServidor(c) ? c.servidorId : App.ehGrupo(c) ? c.canalId : c.discordId);
+  const nomeDoId = (c) => (App.ehServidor(c) ? 'ID do servidor' : App.ehGrupo(c) ? 'ID do grupo' : 'ID do Discord');
+  const servidorDono = (id, menos) => App.estado.clientes.find(x => x.servidorId === id && x.id !== menos);
+  // o que a pessoa colou: ID do servidor | link de um canal dele (discord.com/channels/S/C) | convite (discord.gg/xyz)
+  function lerServidor(txt) {
+    const t = String(txt || '').trim();
+    let m = /^(\d{17,20})$/.exec(t.replace(/\s/g, ''));
+    if (m) return { servidorId: m[1], canalId: '' };
+    m = /discord(?:app)?\.com\/channels\/(\d{17,20})(?:\/(\d{17,20}))?/i.exec(t);
+    if (m) return { servidorId: m[1], canalId: m[2] || '' };
+    m = /(?:discord\.gg|discord(?:app)?\.com\/invite)\/([a-z0-9-]{2,64})/i.exec(t);
+    if (m) return { convite: m[1] };
+    return null;
+  }
   // botão que mostra "Buscando…": o que foi clicado ou, se ele sumiu num redesenho, o primeiro que existir na tela
   const botaoVivo = (btn, ...seletores) => (btn && btn.isConnected ? btn : seletores.map(s => document.querySelector('#area ' + s)).find(Boolean) || null);
 
   function selecionado() {
-    return App.cliente(App.rota.id) || App.faltaResponder()[0] || App.estado.clientes[0] || null;
+    return App.cliente(App.rota.id) || App.clientesRecentes()[0] || null;
   }
 
   // 'atualizado hoje, 18:42' | 'atualizado ontem, 09:10' | 'atualizado em 3 out 2026'
@@ -48,26 +62,19 @@
   // Lista (painel da esquerda)
   // ======================================================================
   function itemLista(c, ativo) {
-    const n = App.pedidosDoCliente(c.id).length;
-    const falta = c.conversa.estado === 'falta';
-    const ha = falta && c.conversa.desde ? App.fmtHa(c.conversa.desde) : '';
-    // esperando resposta, o tempo é o que importa: vem primeiro (a linha corta no fim) e substitui o "sem pedidos"
-    const partes = [ha, n ? plural(n, 'pedido', 'pedidos') : ha ? '' : 'sem pedidos'].filter(Boolean);
+    const r = App.resumoCliente(c.id);
+    const tipo = App.ehServidor(c) ? 'servidor' : App.ehGrupo(c) ? 'grupo' : '';
+    const ped = r.aFazer ? `${r.aFazer} a fazer` : r.total ? plural(r.total, 'pedido', 'pedidos') : 'sem pedidos';
     return `<button class="item ${ativo ? 'ativo' : ''}" data-cliente="${esc(c.id)}"${ativo ? ' aria-current="true"' : ''}>
-      ${UI.avatar({ tam: 34, img: c.avatar, nome: c.nome })}
-      <span class="cl-item-txt"><span class="t1 truncar">${esc(c.nome)}</span><span class="t2 truncar">${esc(partes.join(' · '))}</span></span>
-      ${falta ? `<span class="cl-item-ponto" title="Falta responder">${UI.ponto('var(--vermelho)')}</span>` : ''}
+      ${UI.avatar({ tam: 34, img: c.avatar, nome: c.nome, quadrado: App.ehServidor(c) })}
+      <span class="cl-item-txt"><span class="t1 truncar">${esc(c.nome)}</span><span class="t2 truncar">${esc([tipo, ped].filter(Boolean).join(' · '))}</span></span>
     </button>`;
   }
 
   function renderLista(sel) {
-    const falta = App.faltaResponder(), resp = App.respondidos();
-    const grupo = (rotulo, cs) => cs.length
-      ? `<div class="grupo-rot sobrelinha">${esc(rotulo)} · ${cs.length}</div>${cs.map(c => itemLista(c, c.id === sel.id)).join('')}`
-      : '';
     return `<div class="bloco div-r cl-lista">
       <div class="bloco-cab cl-lista-cab"><h2 class="titulo-bloco cl-titulo">Clientes</h2><span class="contagem">${App.estado.clientes.length}</span></div>
-      <div class="cl-lista-rolar" data-rolagem="lista-clientes">${grupo('Falta responder', falta)}${grupo('Respondidos', resp)}</div>
+      <div class="cl-lista-rolar" data-rolagem="lista-clientes">${App.clientesRecentes().map(c => itemLista(c, c.id === sel.id)).join('')}</div>
       <button class="btn btn-bloco btn-centro cl-add" data-add>${ic('usuarioMais', 17)}Adicionar pelo ID</button>
     </div>`;
   }
@@ -159,7 +166,31 @@
     </div>`;
   }
 
+  function caixaServidor(c) {
+    if (!c.servidorId) {
+      return `<div class="caixa cl-caixa">
+        <div class="cl-caixa-cab"><span class="sobrelinha">Servidor</span></div>
+        <div class="cl-rot">Sem o ID do servidor. Com ele, "Abrir no Discord" vai direto pro servidor.</div>
+        <button class="link cl-link-acao" data-add-servidor>${ic('mais', 14, 2.4)}<span data-rot>Adicionar servidor</span></button>
+      </div>`;
+    }
+    const criado = c.contaCriada || App.dataDoSnowflake(c.servidorId);
+    const oficial = c.globalName && c.globalName !== c.nome ? c.globalName : '';
+    return `<div class="caixa cl-caixa">
+      <div class="cl-caixa-cab"><span class="sobrelinha">Servidor</span>${c.atualizadoEm ? `<span class="cl-atualizado truncar">${esc(fmtAtualizado(c.atualizadoEm))}</span>` : ''}</div>
+      <div class="cl-linha">
+        <div class="cl-campo"><div class="cl-rot">ID do servidor</div><div class="cl-val cl-id truncar">${esc(c.servidorId)}</div></div>
+        <button class="btn btn-sec btn-peq btn-icone" data-copiar title="Copiar ID" aria-label="Copiar ID do servidor">${ic('copiar', 15)}</button>
+      </div>
+      ${oficial ? `<div class="cl-campo"><div class="cl-rot">Nome no Discord</div><div class="cl-val truncar">${esc(oficial)}</div></div>` : ''}
+      <div class="cl-campo"${c.canalId ? ' title="Abrir no Discord vai direto pra esse canal"' : ''}><div class="cl-rot">Canal do pedido</div><div class="cl-val ${c.canalId ? 'cl-id ' : ''}truncar">${c.canalId ? esc(c.canalId) : '<span class="apagado">nenhum (abre o servidor)</span>'}</div></div>
+      ${criado ? `<div class="cl-campo"><div class="cl-rot">Servidor criado</div><div class="cl-val truncar">${esc(App.fmtDataCurta(criado))} · ${esc(App.anos(criado))}</div></div>` : ''}
+      <button class="link cl-link-acao" data-add-servidor>${ic('lapis', 14, 2.4)}<span data-rot>Trocar servidor ou canal</span></button>
+    </div>`;
+  }
+
   function caixaDiscord(c) {
+    if (App.ehServidor(c)) return caixaServidor(c);
     if (App.ehGrupo(c)) return caixaGrupo(c);
     if (!c.discordId) {
       return `<div class="caixa cl-caixa">
@@ -199,34 +230,23 @@
     </div>`;
   }
 
-  function caixaConversa(c) {
-    const falta = c.conversa.estado === 'falta';
-    const ha = c.conversa.desde ? App.fmtHa(c.conversa.desde) : '';
-    return `<div class="caixa cl-conversa">
-      ${UI.avatar({ tam: 32, img: c.avatar, nome: c.nome, classe: falta ? 'anel-falta' : 'anel-ok' })}
-      <div class="cl-campo">
-        <div class="cl-conv-tit truncar">${falta ? 'Falta responder' : 'Respondido'}</div>
-        <div class="cl-conv-sub truncar ${falta ? 'cor-vermelho' : 'cor-verde'}">${falta ? esc(ha ? 'Esperando ' + ha : 'Esperando') : esc(ha ? 'Em dia · ' + ha : 'Em dia')}</div>
-      </div>
-      <button class="btn btn-texto" data-conversa="${falta ? 'respondido' : 'falta'}" title="${falta ? 'Marcar como respondido' : 'Ele mandou mensagem nova'}">${falta ? 'Respondi' : 'Nova msg'}</button>
-    </div>`;
-  }
-
   function renderPerfil(c) {
     const ocupado = atualizando.has(c.id);
-    const grupo = App.ehGrupo(c);
-    const podeAtualizar = (!grupo && !!c.discordId) || temRoblox(c);
-    const dicaAtualizar = !grupo && c.discordId ? 'puxa do Discord' : temRoblox(c) ? 'puxa do Roblox' : grupo ? 'grupo: manual' : 'sem ID';
+    const grupo = App.ehGrupo(c), servidor = App.ehServidor(c);
+    const pessoa = !grupo && !servidor;
+    const podeAtualizar = (pessoa && !!c.discordId) || (servidor && !!c.servidorId) || temRoblox(c);
+    const dicaAtualizar = (pessoa && c.discordId) || (servidor && c.servidorId) ? 'puxa do Discord' : temRoblox(c) ? 'puxa do Roblox' : grupo ? 'grupo: manual' : 'sem ID';
+    const semId = servidor ? 'Esse servidor não tem o ID salvo' : grupo ? 'Esse grupo não tem o ID salvo' : 'Esse cliente não tem ID do Discord';
+    const dicaAbrir = servidor ? (c.canalId ? ' title="Abre o canal salvo do servidor"' : ' title="Abre o servidor"') : grupo ? ' title="Abre a conversa do grupo"' : '';
     return `<div class="bloco sem-pad div-l cl-perfil">
-      <div class="perfil-topo" style="--cor-capa:${corCapa(c)}"><div class="capa-mini"></div>${UI.avatar({ tam: 72, img: c.avatar, nome: c.nome })}</div>
+      <div class="perfil-topo" style="--cor-capa:${corCapa(c)}"><div class="capa-mini"></div>${UI.avatar({ tam: 72, img: c.avatar, nome: c.nome, quadrado: servidor })}</div>
       <div class="cl-perfil-corpo" data-rolagem="perfil-${esc(c.id)}">
         <div class="cl-perfil-id"><div class="cl-perfil-nome truncar" title="${esc(c.nome)}">${esc(c.nome)}</div><div class="cl-perfil-arroba truncar">${esc(arroba(c))}</div></div>
         ${caixaDiscord(c)}
         ${caixaRoblox(c)}
-        ${caixaConversa(c)}
         <div class="cl-espaco"></div>
         <div class="cl-acoes">
-          <button class="btn btn-acento btn-bloco" data-abrir-discord${App.temDiscord(c) ? (grupo ? ' title="Abre a conversa do grupo"' : '') : ` disabled title="${grupo ? 'Esse grupo não tem o ID salvo' : 'Esse cliente não tem ID do Discord'}"`}>${ic('externo', 17)}Abrir no Discord</button>
+          <button class="btn btn-acento btn-bloco" data-abrir-discord${App.temDiscord(c) ? dicaAbrir : ` disabled title="${semId}"`}>${ic('externo', 17)}Abrir no Discord</button>
           <button class="btn btn-primario btn-bloco" data-novo-pedido>${ic('mais', 17, 2.4)}Novo pedido</button>
           <button class="btn btn-sec btn-bloco" data-atualizar${ocupado || !podeAtualizar ? ' disabled' : ''}>${ic('atualizar', 17)}<span data-rot>${ocupado ? 'Atualizando…' : 'Atualizar dados'}</span><span class="dica">${dicaAtualizar}</span></button>
           <button class="btn btn-bloco btn-centro cl-mais" data-mais aria-haspopup="menu"><span data-rot>Mais opções</span>${ic('chevB', 16)}</button>
@@ -310,6 +330,31 @@
     UI.toast('ID do grupo salvo.', 'ok');
   }
 
+  async function adicionarServidor(c, btn) {
+    const v = await UI.perguntar({
+      titulo: c.servidorId ? 'Trocar servidor ou canal' : 'Adicionar servidor',
+      sub: 'Cole o ID do servidor, o link de um canal dele (botão direito no canal → Copiar link) ou um convite.',
+      rotulo: 'Servidor', valor: c.servidorId || '', placeholder: 'ID, discord.com/channels/… ou discord.gg/…', ok: 'Salvar'
+    });
+    if (v == null) return;
+    const q = lerServidor(v);
+    if (!q) { UI.toast('Não reconheci. Cole o ID do servidor (17 a 20 números), o link de um canal ou um convite.', 'erro'); return; }
+    let patch = { servidorId: q.servidorId || '', canalId: q.canalId || '' };
+    if (q.convite) {
+      const soltar = ocupar(botaoVivo(btn, '[data-add-servidor]', '[data-mais]'), 'Buscando…');
+      let r;
+      try { r = await App.api.discord.servidor({ convite: q.convite }); } catch { r = { ok: false, erro: 'Não deu pra falar com o Discord. Tente de novo.' }; }
+      soltar();
+      if (!r || !r.ok) { UI.toast((r && r.erro) || 'Não deu pra ler esse convite.', 'erro'); return; }
+      patch = { servidorId: r.dados.id, canalId: '', convite: q.convite, globalName: r.dados.nome || '', avatar: r.dados.icone || c.avatar, atualizadoEm: App.agoraISO() };
+    }
+    const outro = servidorDono(patch.servidorId, c.id);
+    if (outro) { UI.toast(`Esse servidor já é de ${outro.nome}.`, 'erro'); return; }
+    if (patch.servidorId !== c.servidorId) patch.contaCriada = App.dataDoSnowflake(patch.servidorId);
+    App.acoes.atualizarCliente(c.id, patch);
+    UI.toast(patch.canalId ? 'Servidor e canal salvos.' : 'Servidor salvo.', 'ok');
+  }
+
   async function adicionarRoblox(c, btn) {
     const v = await UI.perguntar({
       titulo: temRoblox(c) ? 'Trocar usuário do Roblox' : 'Adicionar usuário do Roblox',
@@ -362,7 +407,9 @@
       ${op('nome', 'lapis', 'Editar nome')}
       ${op('pagavia', 'moeda', 'Editar "paga via"')}
       ${op('roblox', 'usuarioMais', temRoblox(c) ? 'Trocar usuário do Roblox' : 'Adicionar usuário do Roblox')}
-      ${App.ehGrupo(c)
+      ${App.ehServidor(c)
+        ? (c.servidorId ? op('copiar', 'copiar', 'Copiar ID do servidor') + op('servidor', 'lapis', 'Trocar servidor ou canal') : op('servidor', 'discord', 'Adicionar servidor'))
+        : App.ehGrupo(c)
         ? (c.canalId ? op('copiar', 'copiar', 'Copiar ID do grupo') + op('canal', 'lapis', 'Trocar ID do grupo') : op('canal', 'discord', 'Adicionar ID do grupo'))
         : (c.discordId ? op('copiar', 'copiar', 'Copiar ID do Discord') : op('discord', 'discord', 'Adicionar ID do Discord'))}
       ${op('remover', 'lixo', 'Remover cliente', 'cl-menu-perigo')}`, (m, fechar) => {
@@ -379,7 +426,8 @@
         else if (o === 'roblox') adicionarRoblox(c, null);
         else if (o === 'discord') adicionarDiscord(c, null);
         else if (o === 'canal') adicionarCanal(c);
-        else if (o === 'copiar') App.copiar(idDiscordDe(c), App.ehGrupo(c) ? 'ID do grupo copiado.' : 'ID do Discord copiado.');
+        else if (o === 'servidor') adicionarServidor(c, null);
+        else if (o === 'copiar') App.copiar(idDiscordDe(c), nomeDoId(c) + ' copiado.');
         else if (o === 'remover') removerCliente(c);
       });
     });
@@ -391,13 +439,14 @@
   App.telas.clientes = {
     cheia: true,
     cabecalho() {
-      const n = App.estado.clientes.length, m = App.faltaResponder().length;
+      const n = App.estado.clientes.length;
       if (!n) return { titulo: 'Clientes', sub: 'nenhum cliente ainda' };
-      return { titulo: 'Clientes', sub: `${plural(n, 'cliente', 'clientes')} · ${m ? `${m} esperando resposta` : 'ninguém esperando'}` };
+      const m = App.estado.clientes.filter(c => App.resumoCliente(c.id).aFazer > 0).length;
+      return { titulo: 'Clientes', sub: `${plural(n, 'cliente', 'clientes')}${m ? ` · ${m} com pedido a fazer` : ''}` };
     },
     render() {
       const c = selecionado();
-      // fixa a escolha na rota: depois de "Respondi" a ficha não pula para outro cliente
+      // fixa a escolha na rota: a ficha não pula para outro cliente quando a ordem da lista muda
       if (c && App.rota.id !== c.id) App.rota.id = c.id;
       if (!c) {
         return `<div class="bloco cl-vazio">${UI.vazio({
@@ -448,17 +497,17 @@
 
       const on = (sel, fn) => { const b = $(sel, area); if (b) b.onclick = (e) => fn(e.currentTarget); };
       on('[data-pagavia]', () => editarPagaVia(c));
-      on('[data-copiar]', () => App.copiar(idDiscordDe(c), App.ehGrupo(c) ? 'ID do grupo copiado.' : 'ID do Discord copiado.'));
+      on('[data-copiar]', () => App.copiar(idDiscordDe(c), nomeDoId(c) + ' copiado.'));
       on('[data-add-canal]', () => adicionarCanal(c));
+      on('[data-add-servidor]', (b) => adicionarServidor(c, b));
       on('[data-add-discord]', (b) => adicionarDiscord(c, b));
       on('[data-add-roblox]', (b) => adicionarRoblox(c, b));
       on('[data-rbx-abrir]', () => App.api.sistema.abrirExterno(`https://www.roblox.com/users/${encodeURIComponent(c.roblox.id)}/profile`));
-      on('[data-conversa]', (b) => App.acoes.marcarConversa(c.id, b.dataset.conversa));
       on('[data-abrir-discord]', () => App.abrirDiscord(c));
       on('[data-atualizar]', (b) => atualizarDados(c, b));
       on('[data-mais]', (b) => abrirMais(c, b));
 
-      // cliente aberto de fora (busca, sino, conversas, novo cliente, "Respondi") pode estar fora da
+      // cliente aberto de fora (busca, dashboard, novo cliente) pode estar fora da
       // parte visível da lista. O shell devolve a rolagem salva DEPOIS do montar(), por isso o microtask.
       const rol = $('.cl-lista-rolar', area);
       queueMicrotask(() => {
@@ -519,12 +568,25 @@
 
   App.modais.novoCliente = function () {
     // erroD: { id, codigo } da última busca no Discord que falhou; erroR: usuário do Roblox não achado
-    const st = { tipo: 'pessoa', discord: null, existente: null, roblox: null, robloxNome: '', buscandoD: false, buscandoR: false, apelidoAuto: '', erroD: null, erroR: '' };
+    // servidor: { q (o que foi colado, lido), achado (resposta do Discord), buscando, chave (o texto da última busca) }
+    const st = { tipo: 'pessoa', discord: null, existente: null, roblox: null, robloxNome: '', buscandoD: false, buscandoR: false, apelidoAuto: '', erroD: null, erroR: '',
+      serv: { q: null, achado: null, buscando: false, chave: '' } };
 
     const corpo = `
       <div class="nc-tipo" role="group" aria-label="Tipo de cliente">
         <button type="button" class="nc-tipo-op" data-tipo="pessoa" aria-pressed="true">${ic('clientes', 15)}Pessoa</button>
         <button type="button" class="nc-tipo-op" data-tipo="grupo" aria-pressed="false">${ic('msg', 15)}Grupo de DM</button>
+        <button type="button" class="nc-tipo-op" data-tipo="servidor" aria-pressed="false">${ic('servidor', 15)}Servidor</button>
+      </div>
+      <div class="campo oculto" data-so-servidor>
+        <label for="nc-serv">Servidor</label>
+        <div class="linha-campos nc-linha">
+          <input class="input nc-id" id="nc-serv" data-serv autocomplete="off" spellcheck="false" placeholder="ID do servidor, link de um canal ou convite">
+          <button class="btn btn-acento" data-buscar-s>${ic('busca', 16, 2.4)}<span data-rot>Buscar</span></button>
+        </div>
+        <div class="nc-erro" data-erro-s role="alert"></div>
+        <div class="ajuda nc-ajuda">${ic('info', 14)}<span>Botão direito no ícone do servidor → Copiar ID do servidor. Com o link de um canal (botão direito no canal → Copiar link), "Abrir no Discord" vai direto pra ele. Com um convite, vêm o nome e o ícone.</span></div>
+        <div class="nc-slot" data-res-s></div>
       </div>
       <div class="campo oculto" data-so-grupo>
         <label for="nc-canal">ID do grupo de DM</label>
@@ -555,8 +617,7 @@
       <div class="campo">
         <label for="nc-apelido" data-rot-apelido>Como aparece no painel</label>
         <input class="input" id="nc-apelido" data-apelido autocomplete="off" placeholder="Nome que você vai ver nas listas">
-      </div>
-      <label class="marcador nc-marcador"><input type="checkbox" data-falta checked><span>Já entra como <span class="cor-vermelho forte">falta responder</span></span></label>`;
+      </div>`;
 
     const rodape = `<button class="btn btn-sec" data-cancelar>Cancelar</button>
       <button class="btn btn-primario" data-salvar disabled>${ic('check', 16, 2.6)}Salvar cliente</button>`;
@@ -566,7 +627,11 @@
       aoMontar: (el, fechar) => {
         const inpId = $('[data-id]', el), btnD = $('[data-buscar-d]', el), erroD = $('[data-erro-d]', el), resD = $('[data-res-d]', el);
         const inpR = $('[data-rbx]', el), btnR = $('[data-buscar-r]', el), erroR = $('[data-erro-r]', el), resR = $('[data-res-r]', el);
-        const inpA = $('[data-apelido]', el), chkF = $('[data-falta]', el), btnSalvar = $('[data-salvar]', el);
+        const inpA = $('[data-apelido]', el), btnSalvar = $('[data-salvar]', el);
+        const inpS = $('[data-serv]', el), btnS = $('[data-buscar-s]', el), erroS = $('[data-erro-s]', el), resS = $('[data-res-s]', el);
+        const ehServ = () => st.tipo === 'servidor';
+        // ID do servidor que vale agora: o da resposta do Discord (convite) ou o que foi colado
+        const servidorAtual = () => (st.serv.achado && st.serv.chave === inpS.value.trim() ? st.serv.achado.id : (st.serv.q && st.serv.q.servidorId) || '');
 
         const inpC = $('[data-canal]', el), erroC = $('[data-erro-c]', el), resC = $('[data-res-c]', el);
         const ehGrupo = () => st.tipo === 'grupo';
@@ -578,6 +643,13 @@
         const salvaSemDados = () => !!(st.erroD && st.erroD.id === idAtual() && FALHA_SEM_CULPA_DO_ID.has(st.erroD.codigo));
         // o botão só fica aceso quando o clique consegue salvar de verdade
         const podeSalvar = () => {
+          if (ehServ()) {
+            if (st.serv.buscando) return false;
+            const id = servidorAtual();
+            // convite ainda não lido: o Salvar busca antes
+            if (st.serv.q && st.serv.q.convite && !id) return true;
+            return ID_VALIDO.test(id) && !servidorDono(id) && !!inpA.value.trim();
+          }
           if (ehGrupo()) { const id = canalAtual(); return ID_VALIDO.test(id) && !canalDono(id) && !!inpA.value.trim(); }
           if (st.existente || st.buscandoD || st.buscandoR) return false;
           const id = idAtual(), apelido = inpA.value.trim();
@@ -679,16 +751,85 @@
             <div class="nc-res-sub truncar">grupo criado em ${esc(App.fmtDataCurta(criado))} · ${esc(App.anos(criado))}</div></div>
             <span class="pill verde">${ic('check', 13, 2.8)}ID válido</span></div>`;
         }
+        // servidor: lê o que foi colado e, se der, pergunta ao Discord (nome e ícone vêm com convite, widget ou prévia)
+        function caixaServ(q, a) {
+          const id = a ? a.id : q.servidorId;
+          const criado = App.dataDoSnowflake(id);
+          const nome = (a && a.nome) || inpA.value.trim() || 'Servidor';
+          const sub = [a && a.membros ? `${a.membros} membros` : '', q.canalId ? 'com canal do pedido' : '', criado ? 'criado em ' + App.fmtDataCurta(criado) : ''].filter(Boolean).join(' · ');
+          return `<div class="caixa nc-res ${a ? '' : 'nc-res-peq'}">${UI.avatar({ tam: a ? 46 : 34, img: a ? a.icone : '', nome, quadrado: true })}
+            <div class="nc-res-txt"><div class="nc-res-nome truncar">${esc(nome)}</div><div class="nc-res-sub truncar">${esc(sub)}</div></div>
+            <span class="pill verde">${ic('check', 13, 2.8)}${a ? 'Encontrado' : 'ID válido'}</span></div>`;
+        }
+        function mostrarServ(semNome) {
+          resS.innerHTML = ''; erro(erroS, '');
+          const q = st.serv.q; if (!q) return;
+          const id = servidorAtual();
+          const dono = id && servidorDono(id);
+          if (dono) {
+            resS.innerHTML = caixaJaSalvo(dono);
+            $('[data-abrir-ficha]', resS).onclick = () => { fechar(); App.ir('clientes', dono.id); };
+            return;
+          }
+          if (id) resS.innerHTML = caixaServ(q, st.serv.achado && st.serv.chave === inpS.value.trim() ? st.serv.achado : null);
+          if (semNome) resS.insertAdjacentHTML('beforeend', `<div class="nc-res-nota mudo pequeno">${esc(semNome)}</div>`);
+        }
+        async function buscarServidor() {
+          if (st.serv.buscando) return false;
+          const txt = inpS.value.trim();
+          const q = lerServidor(txt);
+          st.serv.q = q; st.serv.achado = null; st.serv.chave = '';
+          if (!txt) { erro(erroS, 'Cole o ID do servidor, o link de um canal ou um convite.'); inpS.focus(); atualizarBotao(); return false; }
+          if (!q) { resS.innerHTML = ''; erro(erroS, 'Não reconheci. Cole o ID do servidor (17 a 20 números), o link de um canal ou um convite.'); atualizarBotao(); return false; }
+          if (q.servidorId && servidorDono(q.servidorId)) { mostrarServ(); atualizarBotao(); return false; }
+          st.serv.buscando = true; ocuparBusca(btnS, true); atualizarBotao();
+          let r;
+          try { r = await App.api.discord.servidor({ id: q.servidorId || '', convite: q.convite || '' }); } catch { r = { ok: false, codigo: 'rede', erro: 'Não deu pra falar com o Discord. Tente de novo.' }; }
+          st.serv.buscando = false; ocuparBusca(btnS, false);
+          if (!el.isConnected || inpS.value.trim() !== txt) { atualizarBotao(); return false; }
+          if (r && r.ok) {
+            st.serv.achado = r.dados; st.serv.chave = txt;
+            const sugestao = r.dados.nome || '';
+            if (sugestao && (!inpA.value.trim() || inpA.value === st.apelidoAuto)) { inpA.value = sugestao; st.apelidoAuto = sugestao; }
+            mostrarServ();
+          } else if (q.servidorId) {
+            // pelo ID quase nunca vem o nome: o ID vale, o nome vem do campo abaixo
+            mostrarServ(r && r.codigo === 'sem-dados' ? 'O Discord não mostra o nome desse servidor pelo ID. Escreva abaixo como ele aparece no painel.' : (r && r.erro) || '');
+            if (!inpA.value.trim()) inpA.focus();
+          } else {
+            resS.innerHTML = '';
+            erro(erroS, (r && r.erro) || 'Não deu pra ler esse convite.', null, 'Confira o convite ou cole o ID do servidor.');
+          }
+          atualizarBotao();
+          return !!servidorAtual();
+        }
+        let timerServ = null;
+        inpS.addEventListener('input', () => {
+          const q = lerServidor(inpS.value);
+          st.serv.q = q;
+          if (st.serv.chave !== inpS.value.trim()) { st.serv.achado = null; }
+          erro(erroS, '');
+          mostrarServ();
+          clearTimeout(timerServ);
+          // colou algo reconhecível: já pergunta ao Discord
+          if (q) timerServ = setTimeout(() => { if (el.isConnected && lerServidor(inpS.value)) buscarServidor(); }, 450);
+          atualizarBotao();
+        });
+        inpS.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timerServ); buscarServidor(); } });
+        btnS.onclick = () => { clearTimeout(timerServ); buscarServidor(); };
+
         function trocarTipo(tipo) {
           st.tipo = tipo;
           $$('[data-tipo]', el).forEach(b => b.setAttribute('aria-pressed', b.dataset.tipo === tipo ? 'true' : 'false'));
-          $$('[data-so-pessoa]', el).forEach(n => n.classList.toggle('oculto', tipo === 'grupo'));
+          $$('[data-so-pessoa]', el).forEach(n => n.classList.toggle('oculto', tipo !== 'pessoa'));
           $$('[data-so-grupo]', el).forEach(n => n.classList.toggle('oculto', tipo !== 'grupo'));
-          $('[data-rot-apelido]', el).textContent = tipo === 'grupo' ? 'Nome do grupo' : 'Como aparece no painel';
-          inpA.placeholder = tipo === 'grupo' ? 'Ex.: Equipe Lava Obby' : 'Nome que você vai ver nas listas';
+          $$('[data-so-servidor]', el).forEach(n => n.classList.toggle('oculto', tipo !== 'servidor'));
+          $('[data-rot-apelido]', el).textContent = tipo === 'grupo' ? 'Nome do grupo' : tipo === 'servidor' ? 'Nome do servidor' : 'Como aparece no painel';
+          inpA.placeholder = tipo === 'grupo' ? 'Ex.: Equipe Lava Obby' : tipo === 'servidor' ? 'Ex.: Agência Nexus' : 'Nome que você vai ver nas listas';
           const sub = el.querySelector('.modal-cab .sub');
-          if (sub) sub.textContent = tipo === 'grupo' ? 'Cole o ID do grupo de DM e dê um nome pra ele.' : 'Cole o ID do Discord e o resto vem sozinho.';
-          if (tipo === 'grupo') { conferirCanal(); inpC.focus(); } else inpId.focus();
+          if (sub) sub.textContent = tipo === 'grupo' ? 'Cole o ID do grupo de DM e dê um nome pra ele.'
+            : tipo === 'servidor' ? 'Pra quando o pedido vem de um servidor, como o de uma agência.' : 'Cole o ID do Discord e o resto vem sozinho.';
+          if (tipo === 'grupo') { conferirCanal(); inpC.focus(); } else if (tipo === 'servidor') inpS.focus(); else inpId.focus();
           atualizarBotao();
         }
         $$('[data-tipo]', el).forEach(b => b.onclick = () => trocarTipo(b.dataset.tipo));
@@ -702,10 +843,28 @@
 
         async function salvar() {
           if (btnSalvar.disabled) return;
+          if (ehServ()) {
+            // convite colado e ainda não lido (ou texto trocado): lê antes de salvar
+            if (st.serv.q && st.serv.q.convite && !servidorAtual()) { if (!(await buscarServidor())) return; }
+            if (!el.isConnected) return;
+            const servidorId = servidorAtual(), q = st.serv.q || {};
+            const a = st.serv.achado && st.serv.chave === inpS.value.trim() ? st.serv.achado : null;
+            const nome = inpA.value.trim() || (a && a.nome) || '';
+            if (!ID_VALIDO.test(servidorId) || servidorDono(servidorId)) { atualizarBotao(); return; }
+            if (!nome) { atualizarBotao(); inpA.focus(); return; }
+            const novoId = App.acoes.novoCliente({
+              tipo: 'servidor', servidorId, canalId: q.canalId || '', nome, avatar: a ? a.icone || '' : '', globalName: a ? a.nome || '' : '',
+              convite: q.convite || '', contaCriada: App.dataDoSnowflake(servidorId), atualizadoEm: a ? App.agoraISO() : ''
+            });
+            fechar();
+            App.ir('clientes', novoId);
+            UI.toast(`Servidor adicionado: ${nome}.`, 'ok');
+            return;
+          }
           if (ehGrupo()) {
             const canalId = canalAtual(), nome = inpA.value.trim();
             if (!ID_VALIDO.test(canalId) || canalDono(canalId) || !nome) { atualizarBotao(); return; }
-            const novoId = App.acoes.novoCliente({ tipo: 'grupo', canalId, nome, contaCriada: App.dataDoSnowflake(canalId), faltaResponder: chkF.checked });
+            const novoId = App.acoes.novoCliente({ tipo: 'grupo', canalId, nome, contaCriada: App.dataDoSnowflake(canalId) });
             App.acoes.atualizarCliente(novoId, { atualizadoEm: '' }, { render: false });
             fechar();
             App.ir('clientes', novoId);
@@ -736,8 +895,7 @@
             discordId: id, username: d ? d.username || '' : '', globalName: d ? d.globalName || '' : '',
             avatar: d ? d.avatar || '' : '', corPerfil: d ? corValida(d.corPerfil) : '',
             contaCriada: d ? d.contaCriada || App.dataDoSnowflake(id) : id ? App.dataDoSnowflake(id) : '',
-            roblox: rb ? { id: String(rb.id || ''), username: rb.username || '', displayName: rb.displayName || rb.username || '', avatar: rb.avatar || '' } : null,
-            faltaResponder: chkF.checked
+            roblox: rb ? { id: String(rb.id || ''), username: rb.username || '', displayName: rb.displayName || rb.username || '', avatar: rb.avatar || '' } : null
           });
           // o núcleo marca "atualizado agora" quando há ID; sem nada puxado do Discord isso enganaria
           if (semDados) App.acoes.atualizarCliente(novoId, { atualizadoEm: '' }, { render: false });
@@ -774,7 +932,7 @@
         inpR.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarRoblox(); } });
         btnR.onclick = buscarRoblox;
 
-        inpA.addEventListener('input', () => { if (ehGrupo()) conferirCanal(); atualizarBotao(); });
+        inpA.addEventListener('input', () => { if (ehGrupo()) conferirCanal(); if (ehServ() && !st.serv.achado) mostrarServ(); atualizarBotao(); });
         inpA.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); salvar(); } });
 
         $('[data-cancelar]', el).onclick = fechar;

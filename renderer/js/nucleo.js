@@ -67,10 +67,11 @@
       clientes: (Array.isArray(e.clientes) ? e.clientes : []).filter(ehObjeto).map(c => ({
         ...c,
         id: c.id || uid(), criadoEm: c.criadoEm || agoraISO(), nome: c.nome || c.globalName || c.username || 'Cliente',
-        tipo: c.tipo === 'grupo' ? 'grupo' : 'pessoa', canalId: /^\d{17,20}$/.test(String(c.canalId || '')) ? String(c.canalId) : '',
+        tipo: ['grupo', 'servidor'].includes(c.tipo) ? c.tipo : 'pessoa', canalId: /^\d{17,20}$/.test(String(c.canalId || '')) ? String(c.canalId) : '',
+        servidorId: /^\d{17,20}$/.test(String(c.servidorId || '')) ? String(c.servidorId) : '',
         discordId: c.discordId || '', username: c.username || '', globalName: c.globalName || '', avatar: urlLocal(c.avatar),
         corPerfil: c.corPerfil || '', contaCriada: c.contaCriada || '', atualizadoEm: c.atualizadoEm || '',
-        roblox: ehObjeto(c.roblox) ? { ...c.roblox, avatar: urlLocal(c.roblox.avatar) } : null, conversa: c.conversa && c.conversa.estado ? c.conversa : { estado: 'respondido', desde: agoraISO() },
+        roblox: ehObjeto(c.roblox) ? { ...c.roblox, avatar: urlLocal(c.roblox.avatar) } : null,
         notas: c.notas || '', pagaVia: c.pagaVia || ''
       })),
       pedidos: (Array.isArray(e.pedidos) ? e.pedidos : []).filter(ehObjeto).map(p => {
@@ -204,8 +205,11 @@
     return p.pago ? { chave: 'pago', rotulo: 'Pago', tipo: 'verde' } : { chave: 'nao', rotulo: 'Não pago', tipo: 'neutra' };
   };
   App.falta = (p) => (p.pago ? 0 : Math.max(0, +p.valor || 0));
-  App.faltaResponder = () => App.estado.clientes.filter(c => c.conversa.estado === 'falta').sort((a, b) => (a.conversa.desde || '').localeCompare(b.conversa.desde || ''));
-  App.respondidos = () => App.estado.clientes.filter(c => c.conversa.estado !== 'falta').sort((a, b) => (b.conversa.desde || '').localeCompare(a.conversa.desde || ''));
+  // clientes do mais movimentado pro mais parado: a última coisa que aconteceu (cadastro, pedido novo, feito, pago)
+  App.ultimoMovimento = (c) => App.estado.pedidos.filter(p => p.clienteId === c.id)
+    .reduce((m, p) => [p.criadoEm, p.feitoEm, p.pagoEm].reduce((x, d) => (d && d > x ? d : x), m), c.criadoEm || '');
+  App.clientesRecentes = () => App.estado.clientes.map(c => [c, App.ultimoMovimento(c)])
+    .sort((a, b) => b[1].localeCompare(a[1]) || a[0].nome.localeCompare(b[0].nome, 'pt-BR')).map(x => x[0]);
   // a receber por moeda: tudo que tem valor e ainda não foi pago (feito ou não)
   App.aReceber = () => {
     const porMoeda = {}; let pedidos = 0;
@@ -219,7 +223,6 @@
   App.entreguesNoPedido = (p) => p.entregas.filter(Boolean).length;
   App.alertas = () => {
     const a = [];
-    for (const c of App.faltaResponder()) a.push({ tipo: 'responder', clienteId: c.id, texto: `${c.nome} está esperando resposta`, sub: App.fmtHa(c.conversa.desde) });
     for (const p of App.atrasados()) a.push({ tipo: 'atrasado', pedidoId: p.id, texto: `${p.titulo} está atrasado`, sub: (App.cliente(p.clienteId) || {}).nome || '' });
     for (const p of App.venceEmBreve()) a.push({ tipo: 'prazo', pedidoId: p.id, texto: `${p.titulo} vence ${App.fmtPrazoRel(p.prazo)}`, sub: (App.cliente(p.clienteId) || {}).nome || '' });
     return a;
@@ -235,14 +238,18 @@
   // ---------- Ações (únicos pontos que mudam dados) ----------
   App.acoes = {
     novoCliente(d) {
+      // tipo: 'pessoa' (discordId) | 'grupo' de DM (canalId) | 'servidor' (servidorId + canalId opcional dentro dele)
+      const tipo = ['grupo', 'servidor'].includes(d.tipo) ? d.tipo : 'pessoa';
+      const idBase = tipo === 'servidor' ? d.servidorId : tipo === 'grupo' ? d.canalId : d.discordId;
       const c = {
-        id: uid(), criadoEm: agoraISO(), nome: (d.nome || d.globalName || d.username || (d.tipo === 'grupo' ? 'Grupo' : 'Cliente')).trim(),
-        tipo: d.tipo === 'grupo' ? 'grupo' : 'pessoa', canalId: d.canalId || '',
-        discordId: d.tipo === 'grupo' ? '' : (d.discordId || ''), username: d.username || '', globalName: d.globalName || '', avatar: d.avatar || '',
-        corPerfil: d.corPerfil || '', contaCriada: d.contaCriada || (d.discordId ? App.dataDoSnowflake(d.discordId) : d.canalId ? App.dataDoSnowflake(d.canalId) : ''),
-        atualizadoEm: d.discordId ? agoraISO() : '', roblox: d.roblox || null,
-        conversa: { estado: d.faltaResponder ? 'falta' : 'respondido', desde: agoraISO() }, notas: '', pagaVia: d.pagaVia || ''
+        id: uid(), criadoEm: agoraISO(), nome: (d.nome || d.globalName || d.username || (tipo === 'grupo' ? 'Grupo' : tipo === 'servidor' ? 'Servidor' : 'Cliente')).trim(),
+        tipo, canalId: tipo === 'pessoa' ? '' : (d.canalId || ''), servidorId: tipo === 'servidor' ? (d.servidorId || '') : '',
+        discordId: tipo === 'pessoa' ? (d.discordId || '') : '', username: d.username || '', globalName: d.globalName || '', avatar: d.avatar || '',
+        corPerfil: d.corPerfil || '', contaCriada: d.contaCriada || (idBase ? App.dataDoSnowflake(idBase) : ''),
+        atualizadoEm: tipo === 'pessoa' && d.discordId ? agoraISO() : (d.atualizadoEm || ''), roblox: d.roblox || null,
+        notas: '', pagaVia: d.pagaVia || ''
       };
+      if (tipo === 'servidor' && d.convite) c.convite = d.convite;
       App.mudar(e => { e.clientes.push(c); });
       return c.id;
     },
@@ -253,7 +260,6 @@
       App.mudar(e => { e.clientes = e.clientes.filter(c => c.id !== id); e.pedidos = e.pedidos.filter(p => p.clienteId !== id); });
       ids.forEach(pid => { try { App.api.arquivos.removerPedido(pid); } catch {} });
     },
-    marcarConversa(id, estado) { App.mudar(e => { const c = e.clientes.find(x => x.id === id); if (c) c.conversa = { estado: estado === 'falta' ? 'falta' : 'respondido', desde: agoraISO() }; }); },
     // d = { clienteId, titulo, jogo, qtd, valor, moeda, prazo, feito, pago, notas }
     novoPedido(d) {
       const qtd = Math.max(1, Math.min(12, parseInt(d.qtd, 10) || 1));
@@ -287,10 +293,12 @@
 
   // ---------- Ações de alto nível reutilizadas por várias telas ----------
   App.ehGrupo = (c) => !!c && c.tipo === 'grupo';
-  App.temDiscord = (c) => !!c && (App.ehGrupo(c) ? !!c.canalId : !!c.discordId);
+  App.ehServidor = (c) => !!c && c.tipo === 'servidor';
+  App.temDiscord = (c) => !!c && (App.ehServidor(c) ? !!c.servidorId : App.ehGrupo(c) ? !!c.canalId : !!c.discordId);
   App.abrirDiscord = (c) => {
-    if (App.ehGrupo(c) && c.canalId) App.api.sistema.abrirCanal(c.canalId);
-    else if (c && c.discordId) App.api.sistema.abrirDiscord(c.discordId);
+    if (App.ehServidor(c)) { if (c.servidorId) App.api.sistema.abrirServidor(c.servidorId, c.canalId); else UI.toast('Esse servidor não tem o ID salvo.', 'erro'); }
+    else if (App.ehGrupo(c) && c.canalId) App.api.sistema.abrirCanal(c.canalId);
+    else if (c && c.discordId && !App.ehGrupo(c)) App.api.sistema.abrirDiscord(c.discordId);
     else UI.toast(App.ehGrupo(c) ? 'Esse grupo não tem o ID salvo.' : 'Esse cliente não tem ID do Discord.', 'erro');
   };
   App.copiar = async (texto, aviso = 'Copiado.') => { await App.api.sistema.copiar(texto); UI.toast(aviso, 'ok'); };
@@ -298,7 +306,13 @@
   App.atualizarDadosCliente = async (id) => {
     const c = App.cliente(id); if (!c) return;
     let mudou = false;
-    if (c.discordId && !App.ehGrupo(c)) {
+    // servidor: o nome é o que você escolheu; do Discord vem o ícone (e o nome oficial guardado à parte)
+    if (App.ehServidor(c) && c.servidorId) {
+      const r = await App.api.discord.servidor({ id: c.servidorId, convite: c.convite || '' });
+      if (r.ok) { App.acoes.atualizarCliente(id, { avatar: r.dados.icone || c.avatar, globalName: r.dados.nome || c.globalName, atualizadoEm: agoraISO() }); mudou = true; }
+      else UI.toast(r.erro, 'erro');
+    }
+    if (c.discordId && !App.ehGrupo(c) && !App.ehServidor(c)) {
       const r = await App.api.discord.usuario(c.discordId);
       if (r.ok) {
         const d = r.dados;
@@ -334,14 +348,19 @@
         },
         tokenStatus: async () => ({ configurado: localStorage.getItem('comissoes-token') === '1', criptografado: true }),
         salvarToken: async (t) => { localStorage.setItem('comissoes-token', t ? '1' : ''); return { ok: true, configurado: !!t }; },
-        testarToken: async () => { await espera(300); return localStorage.getItem('comissoes-token') === '1' ? { ok: true, bot: 'MeuBot' } : { ok: false, erro: 'Nenhum token salvo.' }; }
+        testarToken: async () => { await espera(300); return localStorage.getItem('comissoes-token') === '1' ? { ok: true, bot: 'MeuBot' } : { ok: false, erro: 'Nenhum token salvo.' }; },
+        servidor: async (q) => {
+          await espera(450);
+          if (q && q.convite) return { ok: true, dados: { id: '1093847561029384756', nome: 'Agência ' + q.convite, icone: '', membros: 120, canalId: '1093847561029384999', canalNome: 'pedidos', criado: App.dataDoSnowflake('1093847561029384756') } };
+          return { ok: false, codigo: 'sem-dados', erro: 'O Discord não mostra o nome desse servidor pelo ID. Escreva o nome abaixo (ou cole um convite dele).' };
+        }
       },
       roblox: { usuario: async (n) => { await espera(400); return /^[A-Za-z0-9_]{3,20}$/.test(n) ? { ok: true, dados: { id: '1938475620', username: n, displayName: n, avatar: '' } } : { ok: false, erro: 'Usuário do Roblox inválido.' }; } },
       arquivos: {
         escolherImagens: async () => { await soNoApp(); return []; }, importar: async () => ({ ok: false, erro: 'Isso só funciona no app instalado.' }),
         listar: async () => [], abrirPasta: soNoApp, remover: async () => true, removerPedido: async () => true, caminhoDe: () => ''
       },
-      sistema: { abrirExterno: async (u) => { window.open(u, '_blank'); return true; }, abrirDiscord: async () => { UI.toast('Abriria o Discord.'); return true; }, abrirCanal: async () => { UI.toast('Abriria a conversa no Discord.'); return true; }, copiar: async (t) => { try { await navigator.clipboard.writeText(t); } catch {} return true; } },
+      sistema: { abrirExterno: async (u) => { window.open(u, '_blank'); return true; }, abrirDiscord: async () => { UI.toast('Abriria o Discord.'); return true; }, abrirCanal: async () => { UI.toast('Abriria a conversa no Discord.'); return true; }, abrirServidor: async () => { UI.toast('Abriria o servidor no Discord.'); return true; }, copiar: async (t) => { try { await navigator.clipboard.writeText(t); } catch {} return true; } },
       janela: { tema: () => {} },
       // no navegador já entra logado (?entrada=1 mostra a tela de login)
       conta: (() => {
@@ -364,10 +383,11 @@
   function semear() {
     const dia = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
     const ha = (min) => new Date(Date.now() - min * 60000).toISOString();
-    const mk = (nome, user, discordId, falta, min, extra = {}) => ({ id: uid(), criadoEm: ha(60 * 24 * 60), nome, discordId, username: user, globalName: nome, avatar: '', corPerfil: extra.cor || '', contaCriada: App.dataDoSnowflake(discordId), atualizadoEm: ha(30), roblox: extra.roblox || null, conversa: { estado: falta ? 'falta' : 'respondido', desde: ha(min) }, notas: extra.notas || '', pagaVia: extra.pagaVia || '' });
+    const mk = (nome, user, discordId, _falta, min, extra = {}) => ({ id: uid(), criadoEm: ha(60 * 24 * 60 + min), nome, discordId, username: user, globalName: nome, avatar: '', corPerfil: extra.cor || '', contaCriada: App.dataDoSnowflake(discordId), atualizadoEm: ha(30), roblox: extra.roblox || null, notas: extra.notas || '', pagaVia: extra.pagaVia || '' });
     const luna = mk('Luna', 'lunarbloxx', '284719306512384000', true, 180, { cor: '#4a3b8c', roblox: { id: '1938475620', username: 'lunar_bloxx', displayName: 'LunaBuilds', avatar: '' }, notas: 'Prefere tons frios e fundo noturno. Sempre pede o PSD junto.', pagaVia: 'Gamepass' });
     const kaio = mk('Kaio', 'kaiodev', '391827364512837465', true, 48);
     const nexus = mk('Nexus Studio', 'nexus.studio', '512384756129384756', true, 12);
+    Object.assign(nexus, { tipo: 'servidor', discordId: '', username: '', servidorId: '512384756129384756', canalId: '1093847561029384999' }); // servidor de agência
     const mira = mk('Mira', 'mirastudios', '612938475612938475', false, 300);
     const voidc = mk('Void', 'voidrbx', '712938475612938476', false, 1440);
     const panda = mk('PixelPanda', 'pixelpanda', '812938475612938477', false, 2880);

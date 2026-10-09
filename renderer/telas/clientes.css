@@ -27,7 +27,6 @@ html[data-tema="of"] .paineis > .bloco.cl-lista { padding: 16px 12px 12px; }
 .cl-lista .grupo-rot { flex: none; }
 .cl-item-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cl-item-txt .t1, .cl-item-txt .t2 { display: block; }
-.cl-item-ponto { flex: none; display: inline-flex; padding: 0 4px; }
 .btn.cl-add { flex: none; height: 44px; margin-top: 12px; border: 1.5px dashed var(--tracejado); border-radius: var(--raio-bloco); background: none; color: var(--suave); font-size: var(--t-base); }
 .btn.cl-add:hover { border-color: var(--azul); color: var(--azul-texto); filter: none; }
 html[data-tema="of"] .btn.cl-add { height: 40px; border-width: 1px; font-weight: 500; }
@@ -142,10 +141,6 @@ html[data-tema="of"] .cl-val { font-size: 13px; }
 .cl-perfil .btn .ic, .nc-linha .btn .ic, .cl-add .ic { flex: none; }
 .cl-link-acao { align-self: flex-start; }
 
-.cl-conversa { flex: none; display: flex; align-items: center; gap: 12px; padding: 11px 12px; }
-.cl-conv-tit { font-size: 13px; font-weight: var(--peso-forte); }
-.cl-conv-sub { margin-top: 2px; font-size: 12px; font-weight: var(--peso-normal); }
-.cl-conversa .btn-texto { flex: none; }
 
 .cl-espaco { flex: 1; min-height: 4px; }
 .cl-acoes { flex: none; display: flex; flex-direction: column; gap: 8px; }
@@ -198,7 +193,7 @@ html[data-tema="of"] .nc-res-sub { font-weight: 400; }
 .nc-marcador { align-self: flex-start; font-size: var(--t-base); }
 
 /* ---------- Novo cliente: Pessoa | Grupo de DM ---------- */
-.nc-tipo { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--raio-ctrl); background: var(--interno); }
+.nc-tipo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: var(--raio-ctrl); background: var(--interno); }
 html[data-tema="of"] .nc-tipo { background: none; border: 1px solid var(--borda); }
 .nc-tipo-op { height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: calc(var(--raio-ctrl) - 3px); background: none; color: var(--mudo); font-size: 13px; font-weight: var(--peso-forte); }
 html[data-tema="of"] .nc-tipo-op { height: 30px; border-radius: 4px; font-weight: 500; }
@@ -207,3 +202,4 @@ html[data-tema="of"] .nc-tipo-op { height: 30px; border-radius: 4px; font-weight
 .nc-tipo-op[aria-pressed="true"] { background: var(--ativo); color: var(--texto); }
 html[data-tema="of"] .nc-tipo-op[aria-pressed="true"] { background: var(--interno); }
 .cl-grupo-nota { line-height: 1.45; }
+.nc-res-nota { margin-top: 6px; line-height: 1.4; }

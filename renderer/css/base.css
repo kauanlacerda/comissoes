@@ -80,10 +80,7 @@ html[data-tema="of"] .app { gap: 12px; padding: 0 12px 12px 12px; }
 html[data-tema="of"] .lateral { width: 220px; background: none; border-radius: 0; padding: 0 0 4px; }
 .lateral.recolhida, html[data-tema="of"] .lateral.recolhida { width: 76px; }
 .lateral.recolhida .nav-item, .lateral.recolhida .marca { justify-content: center; padding-left: 0; padding-right: 0; }
-/* nada na lateral encolhe, só a lista de conversas (rola escondida em janelas baixas) */
 .lateral > * { flex-shrink: 0; }
-.lateral > .lateral-conversas { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 2px; }
-.lateral-conversas::-webkit-scrollbar { display: none; }
 .lateral.recolhida .so-aberta { display: none !important; }
 
 .marca { display: flex; align-items: center; gap: 12px; padding: 0 10px 14px; font-size: 17px; font-weight: var(--peso-titulo); letter-spacing: -.01em; }
@@ -110,10 +107,6 @@ html[data-tema="of"] .nav-sub { padding-left: 36px; }
 
 .lateral-secao { padding: 16px 12px 6px; font-size: 12px; font-weight: var(--peso-forte); color: var(--suave); }
 html[data-tema="of"] .lateral-secao { color: var(--apagado); font-weight: 500; padding: 16px 10px 6px; }
-.conversa { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 10px; border: 0; background: none; border-radius: var(--raio-ctrl); text-align: left; }
-.conversa:hover { background: var(--hover); }
-.conversa .nome { font-size: 13px; font-weight: var(--peso-forte); display: flex; align-items: center; gap: 6px; }
-.conversa .estado { font-size: 12px; font-weight: var(--peso-normal); }
 .espacador { flex: 1; min-height: 12px; }
 
 
@@ -182,7 +175,7 @@ html[data-tema="of"] .sobrelinha { font-size: 12px; font-weight: 500; }
 .truncar { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* ---------- Resumo (stats) ---------- */
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); flex: none; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); flex: none; }
 .stat { background: var(--card); border-radius: var(--raio-card); padding: 18px 20px; display: flex; gap: 12px; min-width: 0; }
 .stat-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .stat-rotulo { order: 0; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: var(--peso-forte); letter-spacing: var(--esp-rotulo); text-transform: var(--caixa-rotulo); color: var(--suave); }
@@ -231,8 +224,6 @@ html[data-tema="cube"] .item.ativo .t2 { color: #a9c4e6; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar.quadrado { border-radius: 10px; }
 html[data-tema="of"] .avatar.quadrado { border-radius: 6px; }
-html[data-tema="cube"] .avatar.anel-falta { box-shadow: 0 0 0 2px var(--fundo), 0 0 0 4px var(--vermelho); }
-html[data-tema="cube"] .avatar.anel-ok { box-shadow: 0 0 0 2px var(--fundo), 0 0 0 4px var(--verde); }
 .ponto { --cor: var(--mudo); width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--cor); display: inline-block; }
 html[data-tema="of"] .ponto { width: 6px; height: 6px; }
 .pill { --cor: var(--suave); display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--raio-pill); font-size: 12px; font-weight: var(--peso-forte); white-space: nowrap; color: var(--cor); background: color-mix(in srgb, var(--cor) 15%, transparent); }

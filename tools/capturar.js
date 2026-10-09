@@ -23,9 +23,11 @@ const JS = {
   'novo-pedido': "App.modais.novoPedido && App.modais.novoPedido(App.estado.clientes[0].id)",
   busca: "App.abrirBusca()",
   'novo-grupo': "App.modais.novoCliente(); setTimeout(() => { document.querySelector('[data-tipo=grupo]').click(); const i = document.querySelector('[data-canal]'); i.value = '1093847561029384756'; i.dispatchEvent(new Event('input')); const a = document.querySelector('[data-apelido]'); a.value = 'Equipe Lava Obby'; a.dispatchEvent(new Event('input')); }, 100)",
-  'ficha-grupo': "App.ir('clientes', App.acoes.novoCliente({ tipo: 'grupo', canalId: '1093847561029384756', nome: 'Equipe Lava Obby', faltaResponder: true }))"
+  'ficha-grupo': "App.ir('clientes', App.acoes.novoCliente({ tipo: 'grupo', canalId: '1093847561029384756', nome: 'Equipe Lava Obby' }))",
+  'ficha-servidor': "App.ir('clientes', App.acoes.novoCliente({ tipo: 'servidor', servidorId: '512384756129384756', canalId: '1093847561029384999', nome: 'Agência Nexus', globalName: 'Nexus Studio GFX' }))",
+  'novo-servidor': "App.modais.novoCliente(); setTimeout(() => { document.querySelector('[data-tipo=servidor]').click(); const i = document.querySelector('[data-serv]'); i.value = 'https://discord.gg/nexus'; i.dispatchEvent(new Event('input')); }, 100)"
 };
-const TELA_BASE = { pedido: 'pedidos', ficha: 'clientes', 'novo-cliente': 'dashboard', 'novo-pedido': 'dashboard', busca: 'dashboard', 'novo-grupo': 'dashboard', 'ficha-grupo': 'clientes' };
+const TELA_BASE = { pedido: 'pedidos', ficha: 'clientes', 'novo-cliente': 'dashboard', 'novo-pedido': 'dashboard', busca: 'dashboard', 'novo-grupo': 'dashboard', 'ficha-grupo': 'clientes', 'novo-servidor': 'dashboard', 'ficha-servidor': 'clientes' };
 
 app.whenReady().then(async () => {
   fs.mkdirSync(saida, { recursive: true });

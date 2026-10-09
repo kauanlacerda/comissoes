@@ -120,6 +120,41 @@ async function main() {
     ok('referência: colar dentro das notas não vira referência', web.notasIgnora);
     ok('referência: localhost, rede local, http, file e não-imagem são recusados', web.recusa);
     ok('referência: link do Discord arrastado é baixado (rede)', web.discord);
+    // pré-visualização: clicar na referência abre grande no app; setas passam; Esc fecha
+    const prev = await ev(`App.ir('pedidos', 'ped-velho-1'); await new Promise(r => setTimeout(r, 400));
+      const tit = () => (document.querySelector('.modal-previa .modal-cab h2') || {}).textContent || '';
+      document.querySelector('[data-ref="0"]').click(); await new Promise(r => setTimeout(r, 100));
+      const r = { abriu: !!document.querySelector('.modal-previa img[data-img]'), t1: tit() };
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); r.t2 = tit();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await new Promise(r => setTimeout(r, 50));
+      r.fechou = !document.querySelector('.modal-previa'); return r;`);
+    ok('referência: clique abre a pré-visualização dentro do app', prev.abriu && /^Referência 1 de \d+$/.test(prev.t1), JSON.stringify(prev));
+    ok('referência: seta passa pra próxima e Esc fecha', /^Referência 2 de \d+$/.test(prev.t2) && prev.fechou);
+    // sem "falta responder": nada de conversa nas telas
+    const semResp = await ev(`const r = {};
+      for (const t of ['dashboard', 'clientes', 'pedidos']) { App.ir(t); await new Promise(r => setTimeout(r, 120)); r[t] = /Falta responder|Respondi|Nova msg|Esperando/.test(document.body.innerText); }
+      App.ir('dashboard'); await new Promise(r => setTimeout(r, 120));
+      r.stats = document.querySelectorAll('#area .stats .stat').length; r.lateral = !!document.querySelector('.lateral-conversas');
+      r.api = typeof App.faltaResponder === 'undefined' && typeof App.acoes.marcarConversa === 'undefined'; return r;`);
+    ok('sem "falta responder" no dashboard, clientes e pedidos', !semResp.dashboard && !semResp.clientes && !semResp.pedidos && !semResp.lateral && semResp.api, JSON.stringify(semResp));
+    ok('dashboard com 3 números', semResp.stats === 3, String(semResp.stats));
+    // servidor como cliente: link de canal colado no cadastro → servidor + canal salvos
+    const serv = await ev(`App.modais.novoCliente(); await new Promise(r => setTimeout(r, 80));
+      document.querySelector('[data-tipo=servidor]').click();
+      const i = document.querySelector('[data-serv]'); i.value = 'https://discord.com/channels/613425648685547541/1093847561029384999'; i.dispatchEvent(new Event('input'));
+      const a = document.querySelector('[data-apelido]'); a.value = 'Agência Teste'; a.dispatchEvent(new Event('input'));
+      for (let k = 0; k < 60 && document.querySelector('[data-buscar-s]') && document.querySelector('[data-buscar-s]').disabled; k++) await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 900));
+      for (let k = 0; k < 60 && document.querySelector('[data-salvar]') && document.querySelector('[data-salvar]').disabled; k++) await new Promise(r => setTimeout(r, 200));
+      document.querySelector('[data-salvar]').click(); await new Promise(r => setTimeout(r, 300));
+      const c = App.estado.clientes.find(x => x.tipo === 'servidor');
+      return c ? { tipo: c.tipo, servidorId: c.servidorId, canalId: c.canalId, nome: c.nome, criado: !!c.contaCriada, ficha: document.querySelector('#area').innerText.includes('ID do servidor') } : null;`);
+    ok('servidor: link de canal vira servidor + canal do pedido', serv && serv.servidorId === '613425648685547541' && serv.canalId === '1093847561029384999' && serv.nome === 'Agência Teste' && serv.criado, JSON.stringify(serv));
+    ok('servidor: ficha mostra a caixa do servidor', serv && serv.ficha);
+    const conv = await ev(`return await window.api.discord.servidor({ convite: 'discord-developers' })`);
+    ok('servidor: convite traz nome do servidor (rede)', conv.ok && !!conv.dados.nome && /^\d{17,20}$/.test(conv.dados.id), conv.ok ? conv.dados.nome + ' icone=' + !!conv.dados.icone : conv.erro);
+    const ruim = await ev(`return [await window.api.sistema.abrirServidor('abc', ''), await window.api.sistema.abrirServidor('613425648685547541', 'x'), (await window.api.discord.servidor({ convite: 'a/b' })).ok]`);
+    ok('servidor: IDs e convites inválidos são recusados', ruim[0] === false && ruim[1] === false && ruim[2] === false, JSON.stringify(ruim));
     // tema
     await ev("App.definirTema('of'); return true");
     ok('troca de tema aplica data-tema', (await ev('return document.documentElement.dataset.tema')) === 'of');

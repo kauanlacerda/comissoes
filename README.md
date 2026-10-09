@@ -62,6 +62,19 @@ Quando o pedido rola num grupo de DM, você pode cadastrar o grupo:
 
 O bot não consegue entrar em grupos, então o nome é você que define. O ID serve pra **Abrir no Discord** cair direto na conversa do grupo. O app também mostra a data em que o grupo foi criado.
 
+## Servidor como cliente
+
+Quando o pedido vem de um servidor (por exemplo, o de uma agência):
+
+1. Em **Novo cliente**, escolha **Servidor**.
+2. Cole uma destas coisas:
+   - o **ID do servidor** (botão direito no ícone do servidor → **Copiar ID do servidor**);
+   - o **link de um canal** dele (botão direito no canal → **Copiar link**): aí **Abrir no Discord** vai direto pra esse canal;
+   - um **convite** (discord.gg/…): aí vêm o nome e o ícone do servidor.
+3. Confira o nome (pelo ID o Discord quase nunca mostra o nome; escreva como quer ver no painel).
+
+Depois dá pra trocar o servidor ou o canal na ficha, em **Trocar servidor ou canal**.
+
 ## Pedidos
 
 Cada pedido está **A fazer** ou **Feito**, e **Pago** ou **Não pago**. Só isso.
@@ -73,11 +86,7 @@ para "Referências do cliente", ou copie a imagem (botão direito → Copiar ima
 com o pedido aberto. O app baixa e guarda a imagem na pasta do pedido. No Google, abra a imagem
 antes de arrastar: assim vem a original, não a miniatura.
 
-## "Falta responder"
-
-O app não lê suas DMs (o Discord não permite isso de forma segura).
-Por isso a marcação é manual: quando o cliente te chamar, marque **Nova msg**;
-quando você responder, clique em **Respondi**. O app mostra há quanto tempo cada um está esperando.
+Clique numa referência pra ver grande dentro do app. As setas (← →) passam pras outras e **Esc** fecha.
 
 ## Visual
 

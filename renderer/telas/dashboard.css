@@ -63,7 +63,6 @@ html[data-tema="cube"] .dash-cli { padding: 9px 12px; gap: 11px; }
 .dash-nome { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 14px; font-weight: 700; }
 html[data-tema="of"] .dash-nome { font-size: 13px; font-weight: 600; }
 .dash-nome .ponto-status { flex: none; line-height: 0; }
-.dash-espera { flex: none; line-height: 0; }
 .dash-sub { font-size: 12px; font-weight: var(--peso-normal); }
 html[data-tema="of"] .dash-sub { font-weight: 400; }
 html[data-tema="of"] .dash-sub.mudo { color: var(--mudo); }

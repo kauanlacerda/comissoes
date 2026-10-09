@@ -10,9 +10,6 @@
     const recolhida = !!cfg.lateralRecolhida;
     el.classList.toggle('recolhida', recolhida);
     const tela = App.rota.tela;
-    const falta = App.faltaResponder();
-    // até 4 conversas (quem espera primeiro); a lista encolhe/rola em janelas baixas pra nunca esconder Configurações/Recolher
-    const conversas = [...falta, ...App.respondidos()].slice(0, 4);
 
     const nav = (id, icone, rotulo, cont) => `<button class="nav-item ${tela === id ? 'ativo' : ''}" data-ir="${id}" title="${esc(rotulo)}">${ic(icone, recolhida ? 20 : 18)}<span class="rot so-aberta">${esc(rotulo)}</span>${cont != null ? `<span class="cont so-aberta">${cont}</span>` : ''}</button>`;
 
@@ -21,19 +18,11 @@
       ${nav('dashboard', 'dashboard', 'Dashboard')}
       ${nav('pedidos', 'pedidos', 'Pedidos', App.pedidosAFazer().length)}
       ${nav('clientes', 'clientes', 'Clientes', App.estado.clientes.length)}
-      ${conversas.length ? `<div class="lateral-conversas so-aberta"><div class="lateral-secao">Conversas</div>
-        ${conversas.map(c => {
-          const f = c.conversa.estado === 'falta';
-          return `<button class="conversa so-aberta" data-cliente="${esc(c.id)}">${UI.avatar({ tam: 34, img: c.avatar, nome: c.nome, classe: f ? 'anel-falta' : 'anel-ok' })}
-            <span class="truncar"><span class="nome"><span class="truncar">${esc(c.nome)}</span><span class="ponto-status">${UI.ponto(f ? 'var(--vermelho)' : 'var(--verde)')}</span></span>
-            <span class="estado ${f ? 'cor-vermelho' : 'cor-verde'}">${f ? 'Esperando ' + esc(App.fmtHa(c.conversa.desde)) : 'Respondido'}</span></span></button>`;
-        }).join('')}</div>` : ''}
       <div class="espacador"></div>
       ${nav('config', 'config', 'Configurações')}
       <button class="nav-item" data-recolher title="${recolhida ? 'Expandir' : 'Recolher'}">${ic(recolhida ? 'expandir' : 'recolher', recolhida ? 20 : 18)}<span class="rot so-aberta">Recolher</span></button>`;
 
     el.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => App.ir(b.dataset.ir, null, b.dataset.grupo ? { grupo: b.dataset.grupo } : {}));
-    el.querySelectorAll('[data-cliente]').forEach(b => b.onclick = () => App.ir('clientes', b.dataset.cliente));
     $('[data-recolher]', el).onclick = () => App.acoes.configurar({ lateralRecolhida: !recolhida });
   }
 
@@ -42,14 +31,12 @@
     const el = $('#cabecalho');
     const info = (tela && tela.cabecalho && tela.cabecalho()) || {};
     const alertas = App.alertas();
-    const falta = App.faltaResponder();
     const botao = info.botao === null ? null : (info.botao || { rotulo: 'Novo cliente', icone: 'mais', acao: () => App.modais.novoCliente && App.modais.novoCliente() });
     el.innerHTML = `
       <div class="cab-titulo"><h1 title="${esc(info.titulo || '')}">${esc(info.titulo || '')}</h1>${info.sub ? `<div class="sub">${esc(info.sub)}</div>` : ''}</div>
       <button class="busca" data-busca>${ic('busca', 17)}<span class="rot">Buscar cliente, pedido ou @</span><span class="tecla">Ctrl K</span></button>
       <div class="cresce"></div>
       <button class="btn-cab" data-sino aria-label="Alertas">${ic('sino', 17)}${alertas.length ? `<span class="badge">${alertas.length}</span>` : ''}</button>
-      ${info.pilha && falta.length ? `<div class="pilha" title="Esperando resposta">${falta.slice(0, 5).map(c => UI.avatar({ tam: 32, img: c.avatar, nome: c.nome })).join('')}${falta.length > 5 ? `<span class="avatar" style="--t:32px;--cor-avatar:#232b37;font-size:12px">+${falta.length - 5}</span>` : ''}</div>` : ''}
       ${botao ? `<button class="btn ${App.estado.config.tema === 'of' ? 'btn-acento btn-peq' : 'btn-primario'}" data-acao-cab>${ic(botao.icone || 'mais', 16, 2.4)}${esc(botao.rotulo)}</button>` : ''}`;
     $('[data-busca]', el).onclick = abrirBusca;
     $('[data-sino]', el).onclick = (e) => abrirSino(e.currentTarget);
@@ -106,11 +93,11 @@
         const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         const atualizar = () => {
           const t = norm(q.value.trim());
-          const cs = App.estado.clientes.filter(c => !t || [c.nome, c.username, c.globalName, c.discordId, c.canalId, c.roblox && c.roblox.username].some(v => norm(v).includes(t))).slice(0, 8);
+          const cs = App.estado.clientes.filter(c => !t || [c.nome, c.username, c.globalName, c.discordId, c.canalId, c.servidorId, c.roblox && c.roblox.username].some(v => norm(v).includes(t))).slice(0, 8);
           const ps = App.estado.pedidos.filter(p => t && [p.titulo, p.jogo, (App.cliente(p.clienteId) || {}).nome].some(v => norm(v).includes(t))).slice(0, 8);
           itens = [...cs.map(c => ({ tipo: 'c', c })), ...ps.map(p => ({ tipo: 'p', p }))];
           res.innerHTML = itens.length ? itens.map((it, i) => it.tipo === 'c'
-            ? `<button class="item" data-i="${i}">${UI.avatar({ tam: 32, img: it.c.avatar, nome: it.c.nome })}<span class="truncar"><span class="t1" style="display:block">${esc(it.c.nome)}</span><span class="t2">${it.c.username ? '@' + esc(it.c.username) : 'cliente'}</span></span></button>`
+            ? `<button class="item" data-i="${i}">${UI.avatar({ tam: 32, img: it.c.avatar, nome: it.c.nome })}<span class="truncar"><span class="t1" style="display:block">${esc(it.c.nome)}</span><span class="t2">${App.ehServidor(it.c) ? 'servidor' : App.ehGrupo(it.c) ? 'grupo de DM' : it.c.username ? '@' + esc(it.c.username) : 'cliente'}</span></span></button>`
             : `<button class="item" data-i="${i}"><span class="avatar quadrado" style="--t:32px;--cor-avatar:var(--interno);color:var(--suave)">${ic('pedidos', 16)}</span><span class="truncar"><span class="t1" style="display:block">${esc(it.p.titulo)}</span><span class="t2">${esc((App.cliente(it.p.clienteId) || {}).nome || '')} · ${esc(App.status(it.p).rotulo)}</span></span></button>`).join('')
             : `<div class="mudo pequeno" style="padding:12px 4px">${t ? 'Nada encontrado.' : 'Nenhum cliente ainda.'}</div>`;
           res.querySelectorAll('[data-i]').forEach(b => b.onclick = () => abrir(+b.dataset.i));
@@ -126,7 +113,7 @@
   // ---------- Sino ----------
   function abrirSino(ancora) {
     const al = App.alertas();
-    const corDe = { responder: 'var(--vermelho)', atrasado: 'var(--vermelho)', prazo: 'var(--amarelo)' };
+    const corDe = { atrasado: 'var(--vermelho)', prazo: 'var(--amarelo)' };
     UI.menu(ancora, `<div class="menu-titulo sobrelinha">Alertas</div>${al.length ? al.map((a, i) => `<button class="item" data-a="${i}">${UI.ponto(corDe[a.tipo])}<span class="truncar"><span class="t1" style="display:block" >${esc(a.texto)}</span><span class="t2">${esc(a.sub)}</span></span></button>`).join('') : `<div class="mudo pequeno" style="padding:10px">Tudo em dia. Nenhum alerta.</div>`}`,
       (m, fechar) => m.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const a = al[+b.dataset.a]; fechar(); a.clienteId ? App.ir('clientes', a.clienteId) : App.ir('pedidos', a.pedidoId); }));
   }

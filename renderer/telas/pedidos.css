@@ -14,7 +14,6 @@ html[data-tema="of"] .ped-lista { padding: 14px 10px 12px; }
 .ped-item-txt > span.ped-t2 { display: flex; }
 .ped-t2-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ped-t2-fim { flex: none; white-space: nowrap; }
-.ped-item-ponto { flex: none; display: inline-flex; padding: 0 4px; }
 
 .ped-grupo-concl { margin-top: 6px; }
 .ped-concl { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: none; text-align: left; cursor: pointer; border-radius: var(--raio-peq); padding-right: 10px; padding-bottom: 8px; }
@@ -93,12 +92,6 @@ html[data-tema="of"] .ped-cli .fato { padding-left: 10px; padding-right: 6px; }
 html[data-tema="of"] .ped-cli .fato:first-child { padding-left: 2px; }
 .ped-cli .fato-valor { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.ped-conversa { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
-.ped-conversa .avatar { margin: 2px; }
-.ped-conv-txt { flex: 1; min-width: 0; }
-.ped-conv-t1 { font-size: 13px; font-weight: var(--peso-forte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ped-conv-t2 { margin-top: 1px; font-size: 12px; font-weight: var(--peso-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ped-conversa .btn-texto { flex: none; }
 
 .ped-espaco { flex: 1 1 auto; min-height: 2px; }
 .ped-acoes { display: flex; flex-direction: column; gap: 8px; }
@@ -140,7 +133,6 @@ html[data-tema] .ped-lista:hover::-webkit-scrollbar-thumb, html[data-tema] .ped-
   }
   .ped-grupo + .ped-grupo { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--borda); }
   .ped-lista .item { position: relative; justify-content: center; padding: 7px 0; }
-  .ped-item-ponto { position: absolute; top: 5px; right: 5px; padding: 0; }
   .ped-concl { justify-content: center; padding: 8px 0; }
   .ped-cli { width: 296px; }
   /* painel estreito: cada fato do tamanho do texto (sem estourar), menos recuo e valor menor; a dica fica só "0 de 4" */
@@ -170,7 +162,6 @@ html[data-tema] .ped-lista:hover::-webkit-scrollbar-thumb, html[data-tema] .ped-
   html[data-tema="of"] .ped-cli .perfil-topo { height: 66px; }
   .ped-cli-corpo, html[data-tema="of"] .ped-cli-corpo { gap: 6px; padding-bottom: 8px; }
   .ped-cli .fato { padding-top: 6px; padding-bottom: 6px; }
-  .ped-conversa { padding: 7px 12px; }
   .ped-acoes .btn { height: 34px; }
   html[data-tema="of"] .ped-acoes .btn { height: 32px; }
 }
@@ -183,3 +174,16 @@ html[data-tema] .ped-lista:hover::-webkit-scrollbar-thumb, html[data-tema] .ped-
 .ped-modal-texto { margin: 0; line-height: 1.55; }
 .ped-marcadores { padding-top: 2px; }
 .ped-marcadores .marcador:has(input:disabled) { cursor: default; color: var(--mudo); }
+
+/* ---------- Pré-visualização da referência (modal grande) ---------- */
+.modal.modal-previa { display: flex; flex-direction: column; }
+.previa { position: relative; display: flex; align-items: center; justify-content: center; min-height: 240px; height: min(70vh, 720px); border-radius: var(--raio-ctrl); background: var(--interno); overflow: hidden; }
+.previa-img { max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer; user-select: none; -webkit-user-drag: none; }
+.previa-seta { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .55); color: #fff; opacity: .8; }
+.previa-seta:hover, .previa-seta:focus-visible { opacity: 1; background: rgba(0, 0, 0, .75); }
+.previa-seta.esq { left: 12px; }
+.previa-seta.dir { right: 12px; }
+.modal-previa .modal-rodape { align-items: center; }
+.previa-nome { flex: 1; min-width: 0; font-size: 13px; color: var(--suave); }
+html[data-tema="of"] .previa { border-radius: 6px; }
+html[data-tema="of"] .previa-seta { border-radius: 6px; }

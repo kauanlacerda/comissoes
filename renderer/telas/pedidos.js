@@ -22,8 +22,7 @@
   const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
   const thumbs = (x, n) => `${x} de ${n} ${n === 1 ? 'thumb' : 'thumbs'}`;
   const corSegura = (cor) => (/^#[0-9a-f]{3,8}$/i.test(String(cor || '')) ? cor : '#2b4a78');
-  const clienteDe = (p) => App.cliente(p.clienteId) || { id: '', nome: 'Cliente removido', username: '', avatar: '', corPerfil: '', discordId: '', conversa: { estado: 'respondido', desde: '' } };
-  const esperando = (c) => !!(c && c.conversa && c.conversa.estado === 'falta');
+  const clienteDe = (p) => App.cliente(p.clienteId) || { id: '', nome: 'Cliente removido', username: '', avatar: '', corPerfil: '', discordId: '' };
   const temValor = (p) => (+p.valor || 0) > 0;
 
   // 'em 2 d' | 'hoje' | 'amanhã' | 'atrasado 1 d' | 'sem prazo'
@@ -109,7 +108,6 @@
     return `<button class="item ${sel && sel.id === p.id ? 'ativo' : ''}" data-ir-pedido="${esc(p.id)}" title="${esc(p.titulo)} — ${esc(c.nome)}">
       ${UI.avatar({ tam: 34, img: c.avatar, nome: c.nome })}
       <span class="ped-item-txt"><span class="t1">${esc(p.titulo)}</span><span class="t2 ped-t2"><span class="ped-t2-nome">${esc(c.nome)}</span><span class="ped-t2-fim">&nbsp;· ${legendaItem(p)}</span></span></span>
-      ${esperando(c) ? `<span class="ped-item-ponto" title="Esperando resposta">${UI.ponto('var(--vermelho)')}</span>` : ''}
     </button>`;
   }
 
@@ -134,7 +132,7 @@
   function refsHtml(lista) {
     if (!lista) return `<div class="ped-refs-vazio">Carregando…</div>`;
     if (!lista.length) return `<div class="ped-refs-vazio">${ic('imagem', 16)}<span>Arraste as referências aqui ou cole com Ctrl+V</span></div>`;
-    return lista.map(r => `<button class="ref" data-ref title="${esc(r.nome)} — abrir a pasta">${ic('imagem', 16)}<img src="${esc(r.url)}" alt="${esc(r.nome)}" loading="lazy"></button>`).join('');
+    return lista.map((r, i) => `<button class="ref" data-ref="${i}" title="${esc(r.nome)}">${ic('imagem', 16)}<img src="${esc(r.url)}" alt="${esc(r.nome)}" loading="lazy"></button>`).join('');
   }
 
   function slotHtml(p, i) {
@@ -209,11 +207,9 @@
 
   function renderCliente(p) {
     const c = clienteDe(p);
-    const falta = esperando(c);
     const fp = fatoPrazo(p), fg = fatoPagamento(p);
     const valor = temValor(p) ? App.fmtValor(p.valor, p.moeda) : '—';
     const n = p.qtd, x = App.entreguesNoPedido(p);
-    const desde = c.conversa && c.conversa.desde ? App.fmtHa(c.conversa.desde) : '';
     // só aparece quando dá pra usar: em Robux, com valor e ainda não pago
     const btnGamepass = p.moeda === 'Robux' && temValor(p) && !p.pago
       ? `<button class="btn btn-acento btn-bloco" data-acao="gamepass" title="Copia a mensagem com o valor e o link do gamepass">${ic('enviar', 18)}Enviar gamepass</button>` : '';
@@ -224,23 +220,17 @@
       ? `<button class="btn btn-sec btn-bloco" data-acao="despagar">${ic('dinheiro', 18)}Desmarcar pago</button>`
       : `<button class="btn btn-acento btn-bloco" data-acao="pago" ${temValor(p) ? '' : 'disabled title="Pedido sem valor — edite o pedido para pôr um valor"'}>${ic('dinheiro', 18)}Marcar como pago</button>`;
     return `<aside class="bloco sem-pad div-l ped-cli" aria-label="Cliente do pedido">
-      <div class="perfil-topo" style="--cor-capa:${corSegura(c.corPerfil)}"><div class="capa-mini"></div>${UI.avatar({ tam: 72, img: c.avatar, nome: c.nome })}</div>
+      <div class="perfil-topo" style="--cor-capa:${corSegura(c.corPerfil)}"><div class="capa-mini"></div>${UI.avatar({ tam: 72, img: c.avatar, nome: c.nome, quadrado: App.ehServidor(c) })}</div>
       <div class="ped-cli-corpo">
         <div class="ped-cli-nome">
           ${c.id ? `<button class="ped-cli-titulo truncar" data-ficha title="Ver ficha de ${esc(c.nome)}">${esc(c.nome)}</button>` : `<div class="ped-cli-titulo truncar">${esc(c.nome)}</div>`}
-          ${App.ehGrupo(c) ? '<div class="ped-cli-sub truncar">Grupo</div>' : c.username ? `<div class="ped-cli-sub truncar">@${esc(c.username)}</div>` : ''}
+          ${App.ehServidor(c) ? '<div class="ped-cli-sub truncar">Servidor</div>' : App.ehGrupo(c) ? '<div class="ped-cli-sub truncar">Grupo</div>' : c.username ? `<div class="ped-cli-sub truncar">@${esc(c.username)}</div>` : ''}
         </div>
         <div class="fatos" style="--n:3">
           <div class="fato" title="${esc(fp.titulo)}"><span class="fato-rotulo ${fp.rot === 'Atrasado' ? fp.cls : ''}">${fp.rot}</span><span class="fato-valor ${fp.cls}">${esc(fp.val)}</span></div>
           <div class="fato" title="${esc(temValor(p) ? valor : 'Sem valor definido')}"><span class="fato-rotulo">Valor</span><span class="fato-valor">${esc(valor)}</span></div>
           <div class="fato" title="${esc(fg.titulo)}"><span class="fato-rotulo">Pagamento</span><span class="fato-valor ${fg.cls}">${esc(fg.val)}</span></div>
         </div>
-        ${c.id ? `<div class="caixa ped-conversa">
-          ${UI.avatar({ tam: 32, img: c.avatar, nome: c.nome, classe: falta ? 'anel-falta' : 'anel-ok' })}
-          <div class="ped-conv-txt"><div class="ped-conv-t1">${falta ? 'Falta responder' : 'Respondido'}</div>
-            <div class="ped-conv-t2 ${falta ? 'cor-vermelho' : 'cor-verde'}">${falta ? 'Esperando' + (desde ? ' ' + esc(desde) : '') : (desde ? esc(desde) : 'em dia')}</div></div>
-          <button class="btn btn-texto" data-conversa>${falta ? 'Respondi' : 'Nova msg'}</button>
-        </div>` : ''}
         <div class="ped-espaco"></div>
         <div class="ped-acoes">
           ${btnFeito}
@@ -362,6 +352,43 @@
     }
     if (erros.length) UI.toast(erros.length > 1 ? `${erros[0]} (${erros.length} arquivos não entraram)` : erros[0], 'erro');
     if (ok) { UI.toast(ok === 1 ? 'Referência adicionada.' : `${ok} referências adicionadas.`, 'ok'); await carregarRefs(pedidoId); }
+  }
+
+  // ---------- Pré-visualização das referências ----------
+  // Abre a imagem grande dentro do app; ← → passam entre as referências do pedido, Esc fecha.
+  function abrirPrevia(pedidoId, inicio) {
+    const lista = refsCache[pedidoId] || [];
+    if (!lista.length) return;
+    let i = Math.max(0, Math.min(lista.length - 1, inicio || 0));
+    const varias = lista.length > 1;
+    let teclas = null;
+    UI.modal({
+      titulo: 'Referência', largura: 1180,
+      corpo: `<div class="previa">
+          ${varias ? `<button class="previa-seta esq" data-passo="-1" aria-label="Anterior">${ic('chevE', 22, 2.2)}</button>` : ''}
+          <img class="previa-img" data-img alt="">
+          ${varias ? `<button class="previa-seta dir" data-passo="1" aria-label="Próxima">${ic('chevD', 22, 2.2)}</button>` : ''}
+        </div>`,
+      rodape: `<span class="previa-nome truncar" data-nome></span><button class="btn btn-sec btn-peq" data-pasta>${ic('pasta', 15)}Abrir pasta</button>`,
+      aoMontar: (el, fechar) => {
+        el.classList.add('modal-previa');
+        const img = el.querySelector('[data-img]'), nome = el.querySelector('[data-nome]'), tit = el.querySelector('.modal-cab h2');
+        const mostrar = () => {
+          const r = lista[i];
+          img.src = r.url; img.alt = r.nome;
+          nome.textContent = r.nome; nome.title = r.nome;
+          tit.textContent = varias ? `Referência ${i + 1} de ${lista.length}` : 'Referência';
+        };
+        const passar = (d) => { if (!varias) return; i = (i + d + lista.length) % lista.length; mostrar(); };
+        el.querySelectorAll('[data-passo]').forEach(b => b.addEventListener('click', () => passar(+b.dataset.passo)));
+        img.addEventListener('click', () => passar(1));
+        el.querySelector('[data-pasta]').addEventListener('click', () => { fechar(); App.api.arquivos.abrirPasta(pedidoId, 'referencias'); });
+        teclas = (e) => { if (e.key === 'ArrowRight') { e.preventDefault(); passar(1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); passar(-1); } };
+        document.addEventListener('keydown', teclas);
+        mostrar();
+      },
+      aoFechar: () => { if (teclas) document.removeEventListener('keydown', teclas); }
+    });
   }
 
   // ---------- Thumbs (pasta de entrega) ----------
@@ -517,7 +544,7 @@
       if (cs.length) importarRefs(id, cs);
     });
     $('[data-refs-pasta]').addEventListener('click', () => App.api.arquivos.abrirPasta(id, 'referencias'));
-    $('[data-refs]').addEventListener('click', (e) => { if (e.target.closest('[data-ref]')) App.api.arquivos.abrirPasta(id, 'referencias'); });
+    $('[data-refs]').addEventListener('click', (e) => { const r = e.target.closest('[data-ref]'); if (r) abrirPrevia(id, +r.dataset.ref); });
     $('[data-entrega-pasta]').addEventListener('click', () => App.api.arquivos.abrirPasta(id, 'entrega'));
 
     $$('[data-slot]').forEach(s => {
@@ -538,11 +565,6 @@
     // cliente
     const ficha = $('[data-ficha]');
     if (ficha) ficha.addEventListener('click', () => App.ir('clientes', p.clienteId));
-    const conv = $('[data-conversa]');
-    if (conv) conv.addEventListener('click', () => {
-      const c = App.cliente(p.clienteId); if (!c) return;
-      App.acoes.marcarConversa(c.id, esperando(c) ? 'respondido' : 'falta');
-    });
     const acoes = {
       feito: () => marcarFeito(id),
       desfazer: () => App.acoes.marcarFeito(id, false),
@@ -637,7 +659,7 @@
       <div class="campo"><label for="pf-cliente">Cliente</label>
         <select class="input" id="pf-cliente" data-f="clienteId">
           ${selCli ? '' : opt('', 'Escolha o cliente…', true)}
-          ${clientes.map(c => opt(c.id, App.ehGrupo(c) ? `${c.nome} (grupo)` : c.username ? `${c.nome} (@${c.username})` : c.nome, c.id === selCli)).join('')}
+          ${clientes.map(c => opt(c.id, App.ehServidor(c) ? `${c.nome} (servidor)` : App.ehGrupo(c) ? `${c.nome} (grupo)` : c.username ? `${c.nome} (@${c.username})` : c.nome, c.id === selCli)).join('')}
         </select><div class="ped-erro" data-erro="clienteId" role="alert"></div></div>
       <div class="linha-campos">
         <div class="campo"><label for="pf-titulo">Título</label><input class="input" id="pf-titulo" data-f="titulo" maxlength="80" placeholder="Pack 4 thumbs" value="${esc(d.titulo)}" ${selCli ? 'autofocus' : ''}><div class="ped-erro" data-erro="titulo" role="alert"></div></div>

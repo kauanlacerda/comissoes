@@ -126,6 +126,49 @@ async function discordUsuario(id) {
   };
 }
 
+// Servidor (ex.: de uma agência). O bot não precisa estar nele:
+// - convite (discord.gg/…): o Discord devolve nome, ícone e o canal do convite, sem token;
+// - só o ID: dá o nome se o servidor tiver o widget ligado, ou se for público/tiver o bot (preview).
+async function discordServidor({ id, convite } = {}) {
+  id = String(id || '').trim(); convite = String(convite || '').trim();
+  if (convite && !/^[a-z0-9-]{2,64}$/i.test(convite)) return { ok: false, codigo: 'convite-invalido', erro: 'Esse convite não parece válido.' };
+  if (!convite && !/^\d{17,20}$/.test(id)) return { ok: false, codigo: 'id-invalido', erro: 'Esse ID não parece válido. Ele tem de 17 a 20 números.' };
+  const pedir = (rota, comBot) => {
+    const token = comBot ? lerToken() : '';
+    if (comBot && !token) return Promise.resolve(null);
+    return fetch('https://discord.com/api/v10' + rota, {
+      headers: { ...(token ? { Authorization: 'Bot ' + token } : {}), 'User-Agent': 'DiscordBot (https://github.com, 0.1) Comissoes' },
+      signal: AbortSignal.timeout(12000)
+    });
+  };
+  let g = null, canal = null, rede = false;
+  try {
+    if (convite) {
+      const r = await pedir(`/invites/${encodeURIComponent(convite)}?with_counts=true`);
+      if (r.status === 404) return { ok: false, codigo: 'convite-invalido', erro: 'Esse convite não existe ou já expirou.' };
+      if (r.status === 429) return { ok: false, codigo: 'limite', erro: 'O Discord pediu pra esperar alguns segundos. Tente de novo já já.' };
+      if (!r.ok) return { ok: false, codigo: 'http', erro: 'O Discord respondeu com erro ' + r.status + '.' };
+      const j = await r.json();
+      if (!j.guild) return { ok: false, codigo: 'convite-invalido', erro: 'Esse convite não é de um servidor.' };
+      g = { id: String(j.guild.id), name: j.guild.name, icon: j.guild.icon, membros: j.approximate_member_count || 0 };
+      if (j.channel && /^\d{17,20}$/.test(String(j.channel.id))) canal = { id: String(j.channel.id), nome: j.channel.name || '' };
+    } else {
+      // widget público (sem token) e, se não der, a prévia (servidor público ou com o bot)
+      try { const r = await pedir(`/guilds/${id}/widget.json`); if (r.ok) { const j = await r.json(); g = { id, name: j.name, icon: null, membros: j.presence_count || 0 }; } } catch { rede = true; }
+      try { const r = await pedir(`/guilds/${id}/preview`, true); if (r && r.ok) { const j = await r.json(); g = { id, name: j.name, icon: j.icon, membros: j.approximate_member_count || 0 }; } } catch { rede = true; }
+    }
+  } catch { return { ok: false, codigo: 'rede', erro: 'Sem conexão com o Discord. Tente de novo.' }; }
+  if (!g) return rede
+    ? { ok: false, codigo: 'rede', erro: 'Sem conexão com o Discord. Tente de novo.' }
+    : { ok: false, codigo: 'sem-dados', erro: 'O Discord não mostra o nome desse servidor pelo ID. Escreva o nome abaixo (ou cole um convite dele).' };
+  let icone = '';
+  if (g.icon && /^(a_)?[a-f0-9]{32}$/.test(g.icon)) {
+    const destino = dirMidia('discord', 'servidor-' + g.id + '.png');
+    try { await baixarImagem(`https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=256`, destino); icone = urlDe(destino); } catch {}
+  }
+  return { ok: true, dados: { id: g.id, nome: String(g.name || ''), icone, membros: g.membros, canalId: canal ? canal.id : '', canalNome: canal ? canal.nome : '', criado: dataDoSnowflake(g.id) } };
+}
+
 async function testarToken() {
   const token = lerToken();
   if (!token) return { ok: false, erro: 'Nenhum token salvo.' };
@@ -292,6 +335,7 @@ function registrarIpc() {
   });
 
   ipcMain.handle('discord:usuario', (_e, id) => discordUsuario(id));
+  ipcMain.handle('discord:servidor', (_e, q) => discordServidor(q || {}).catch(() => ({ ok: false, codigo: 'rede', erro: 'Sem conexão com o Discord. Tente de novo.' })));
   ipcMain.handle('discord:tokenStatus', () => ({ configurado: !!lerToken(), criptografado: safeStorage.isEncryptionAvailable() }));
   ipcMain.handle('discord:salvarToken', (_e, token) => { salvarToken(token); return { ok: true, configurado: !!lerToken() }; });
   ipcMain.handle('discord:testarToken', () => testarToken());
@@ -331,6 +375,14 @@ function registrarIpc() {
     catch { shell.openExternal(`https://discord.com/users/${id}`); return true; }
   });
   // DM ou grupo de DM pelo ID do canal: abre direto na conversa
+  // servidor: vai pro canal salvo, ou pro servidor (o Discord abre o último canal visto)
+  ipcMain.handle('sistema:abrirServidor', async (_e, servidorId, canalId) => {
+    if (!/^\d{17,20}$/.test(String(servidorId)) || (canalId && !/^\d{17,20}$/.test(String(canalId)))) return false;
+    const rota = `channels/${servidorId}${canalId ? '/' + canalId : ''}`;
+    const temApp = !!app.getApplicationNameForProtocol('discord://');
+    try { await shell.openExternal(temApp ? `discord://-/${rota}` : `https://discord.com/${rota}`); return true; }
+    catch { shell.openExternal(`https://discord.com/${rota}`); return true; }
+  });
   ipcMain.handle('sistema:abrirCanalDiscord', async (_e, id) => {
     if (!/^\d{17,20}$/.test(String(id))) return false;
     const temApp = !!app.getApplicationNameForProtocol('discord://');

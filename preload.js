@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   discord: {
     usuario: (id) => ipcRenderer.invoke('discord:usuario', id),
+    servidor: (q) => ipcRenderer.invoke('discord:servidor', q),
     tokenStatus: () => ipcRenderer.invoke('discord:tokenStatus'),
     salvarToken: (token) => ipcRenderer.invoke('discord:salvarToken', token),
     testarToken: () => ipcRenderer.invoke('discord:testarToken')
@@ -50,6 +51,7 @@ contextBridge.exposeInMainWorld('api', {
     abrirExterno: (url) => ipcRenderer.invoke('sistema:abrirExterno', url),
     abrirDiscord: (id) => ipcRenderer.invoke('sistema:abrirDiscord', id),
     abrirCanal: (id) => ipcRenderer.invoke('sistema:abrirCanalDiscord', id),
+    abrirServidor: (servidorId, canalId) => ipcRenderer.invoke('sistema:abrirServidor', servidorId, canalId || ''),
     copiar: (texto) => ipcRenderer.invoke('sistema:copiar', texto)
   },
   janela: {
