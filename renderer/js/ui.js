@@ -89,7 +89,7 @@
     fundo.className = 'fundo-modal';
     fundo.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${UI.esc(titulo)}" style="--largura:${largura}px">
       <div class="modal-cab"><div class="tit"><h2>${UI.esc(titulo)}</h2>${sub ? `<div class="sub">${UI.esc(sub)}</div>` : ''}</div>
-      <button class="btn btn-sec btn-peq btn-icone" data-fechar aria-label="Fechar">${UI.icone('x', 16, 2.2)}</button></div>
+      <button class="btn btn-sec btn-peq btn-icone" data-fechar aria-label="Fechar">${UI.icone('x', 18, 2.2)}</button></div>
       <div class="modal-corpo">${corpo}</div>${rodape ? `<div class="modal-rodape">${rodape}</div>` : ''}</div>`;
     document.body.appendChild(fundo);
     let fechado = false;

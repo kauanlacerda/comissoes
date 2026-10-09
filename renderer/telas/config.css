@@ -1,1 +1,77 @@
-/* tela config — preenchida pelo módulo da tela */
+/* =========================================================================
+   Configurações — só tokens.
+   cube: coluna central de cards soltos (título em cima, conteúdo embaixo)
+   of:   painel único; cada seção vira uma faixa com título à esquerda e campos à direita
+   ========================================================================= */
+
+.cfg { display: flex; flex-direction: column; gap: var(--gap); width: 100%; max-width: 760px; margin: 0 auto; }
+html[data-tema="cube"] .cfg-sec { padding: 22px 24px 24px; }
+.cfg-cab { margin-bottom: 18px; min-width: 0; }
+.cfg-desc { margin: 5px 0 0; font-size: 13px; line-height: 1.5; color: var(--mudo); font-weight: var(--peso-normal); }
+.cfg-corpo { min-width: 0; }
+
+html[data-tema="of"] .cfg { max-width: none; margin: 0; gap: 0; }
+html[data-tema="of"] .cfg-sec { display: grid; grid-template-columns: 230px minmax(0, 580px); column-gap: 56px; padding: 26px 28px; }
+html[data-tema="of"] .cfg-cab { margin: 0; }
+html[data-tema="of"] .cfg-desc { font-weight: 400; color: var(--apagado); }
+
+/* ---------- Aparência ---------- */
+.opcao-tema { cursor: pointer; transition: border-color .12s; align-items: stretch; }
+.opcao-tema[aria-pressed="false"]:hover { border-color: color-mix(in srgb, var(--azul) 45%, var(--borda)); }
+.cfg-tema-txt { display: flex; flex-direction: column; gap: 3px; padding: 2px 2px 0; min-width: 0; }
+.cfg-tema-nome { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--texto); }
+.cfg-fonte-cube { font-family: 'Manrope', system-ui, sans-serif; font-weight: 800; }
+.cfg-fonte-of { font-family: 'Inter', system-ui, sans-serif; font-weight: 600; }
+.cfg-tema-uso { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-family: var(--fonte); font-size: 11px; font-weight: var(--peso-forte); color: var(--azul-texto); }
+.cfg-tema-desc { font-size: 12px; color: var(--mudo); font-weight: var(--peso-normal); }
+html[data-tema="of"] .cfg-tema-desc { font-weight: 400; }
+
+/* miniaturas: desenham o layout de cada modo, independente do modo atual */
+.miniatura.cube { gap: 5px; padding: 7px; }
+.miniatura.of { gap: 6px; padding: 6px; }
+.miniatura.cube i.mt-lat, .miniatura.of i.mt-lat { width: 22%; flex: none; display: flex; flex-direction: column; gap: 5px; padding: 8px 6px; }
+.miniatura.of i.mt-lat { background: transparent; padding-left: 2px; }
+.miniatura .mt-lat b { display: block; height: 4px; border-radius: 2px; background: var(--trilho); }
+.miniatura .mt-lat b:first-child { width: 70%; margin-bottom: 3px; background: var(--azul); opacity: .8; }
+.miniatura .mt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.miniatura.of i.mt-main { display: flex; flex-direction: column; gap: 0; border-left: 0; border-radius: 3px; }
+.miniatura .mt-linha { display: flex; gap: 5px; height: 20px; flex: none; }
+.miniatura .mt-linha.mt-cresce { flex: 1; height: auto; }
+.miniatura .mt-linha > i { flex: 1; min-width: 0; }
+.miniatura .mt-linha > i.mt-col { flex: 0 0 32%; }
+.miniatura.cube .mt-linha > i { border-radius: 5px; }
+.miniatura.of .mt-linha { gap: 0; }
+.miniatura.of .mt-linha:first-child { height: 22px; border-bottom: 1px solid var(--borda); }
+.miniatura.of .mt-linha > i { border-radius: 0; }
+
+/* ---------- Campos ---------- */
+.cfg-campos { display: flex; flex-direction: column; gap: 18px; }
+.cfg-campo-curto { max-width: 260px; }
+
+/* ---------- Discord ---------- */
+.cfg-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; font-size: 13px; }
+.cfg-remover { margin-left: auto; font-size: 12px; }
+.cfg-token-linha { display: flex; gap: 8px; }
+.cfg-token-linha .input { flex: 1; min-width: 0; }
+.cfg-token-linha .btn { flex: none; height: var(--alt-input); justify-content: center; }
+.cfg-guias { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 20px; }
+.cfg-guia { padding: 14px 16px; font-size: 13px; line-height: 1.55; }
+.cfg-guia-tit { margin-bottom: 8px; font-weight: var(--peso-forte); }
+.cfg-guia ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--suave); }
+.cfg-guia li::marker { color: var(--mudo); font-weight: var(--peso-medio); }
+.cfg-guia b { color: var(--texto); font-weight: var(--peso-medio); }
+/* link do portal: é um <a> inline (não inline-flex) pra quebrar linha junto com o texto */
+.cfg-guia .cfg-link-texto { display: inline; font-size: inherit; text-decoration: none; }
+.cfg-guia .cfg-link-texto:hover { text-decoration: underline; }
+.cfg-junto { white-space: nowrap; }
+.cfg-guia .cfg-link-texto .ic { display: inline-block; vertical-align: -2px; margin-left: 2px; }
+
+/* ---------- Gamepass ---------- */
+.cfg-cod { font-family: ui-monospace, Consolas, monospace; font-size: 12px; padding: 1px 5px; border-radius: var(--raio-peq); background: var(--trilho); color: var(--texto); }
+.cfg-previa { display: flex; flex-direction: column; gap: 6px; }
+.cfg-previa-txt { font-size: 13px; line-height: 1.5; color: var(--suave); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- Dados ---------- */
+.cfg-texto { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: var(--suave); }
+.cfg-texto b { color: var(--texto); font-weight: var(--peso-medio); }
+.cfg-botoes { display: flex; flex-wrap: wrap; gap: 10px; }

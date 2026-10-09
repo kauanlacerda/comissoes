@@ -1,1 +1,96 @@
-/* tela dashboard — preenchida pelo módulo da tela */
+/* =========================================================================
+   Dashboard — só tokens. Estrutura comum + ajustes por modo.
+   ========================================================================= */
+
+/* ---------- Resumo: cartões clicáveis ---------- */
+.dash-stat-ir { cursor: pointer; transition: filter .12s; }
+html[data-tema="cube"] .dash-stat-ir:hover { filter: brightness(1.12); }
+html[data-tema="of"] .dash-stat-ir:hover .stat-rotulo { color: var(--texto); }
+html[data-tema="of"] .dash-stat-ir.destaque:hover .stat-rotulo { color: var(--azul-texto); }
+/* "A receber": com outras moedas a legenda pode quebrar linha em vez de esconder dinheiro */
+.stat.destaque .stat-legenda { white-space: normal; }
+
+/* ---------- Grade principal ---------- */
+/* piso baixo: na janela mínima (1100×700) a grade cabe e só as listas internas rolam */
+.dash-grade { min-height: 400px; }
+.dash-esq { width: 310px; flex: none; }
+@media (max-width: 1260px) { .dash-esq { width: 282px; } }
+
+/* ---------- Calendário ---------- */
+html[data-tema="cube"] .dash-cal { padding: 14px 15px 12px; }
+html[data-tema="of"] .dash-cal { padding: 16px 20px 18px; }
+.dash-cal { flex: none; }
+.dash-mes { border: 0; background: none; padding: 4px 8px; border-radius: var(--raio-peq); color: var(--texto); font-size: 15px; font-weight: var(--peso-titulo); cursor: default; }
+html[data-tema="of"] .dash-mes { font-weight: 600; }
+.dash-mes.pode-voltar { cursor: pointer; }
+.dash-mes.pode-voltar:hover { color: var(--azul-texto); }
+.dash-dia-prazo { cursor: pointer; }
+.dash-dia-prazo:not(.hoje) span { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+html[data-tema="of"] .dash-dia-prazo:not(.hoje) span { border-radius: var(--raio-peq); }
+.dash-dia-prazo:hover:not(.hoje) span { background: var(--hover); color: var(--texto); }
+.cal-dia i.marca-prazo { display: block; }
+/* hoje com prazo: o ponto sobe pra dentro do anel, embaixo do número (senão encosta no traço) */
+.dash-dia-prazo.hoje .marca-prazo { bottom: 6px; }
+/* janela baixa (perto do mínimo de 700px): no cube o calendário fica mais justo pra grade
+   caber sem a área rolar junto com a lista de clientes */
+@media (max-height: 780px) {
+  html[data-tema="cube"] .dash-cal { padding: 10px 15px 8px; }
+  html[data-tema="cube"] .dash-cal .cal-cab { margin-bottom: 4px; }
+  html[data-tema="cube"] .dash-cal .cal-dia { height: 32px; }
+  html[data-tema="cube"] .dash-cal .dash-dia-prazo.hoje .marca-prazo { bottom: 4px; }
+  html[data-tema="cube"] .dash-clientes { min-height: 130px; }
+}
+
+/* ---------- Clientes (coluna esquerda) ---------- */
+.dash-clientes { flex: 1; min-height: 150px; display: flex; flex-direction: column; }
+html[data-tema="cube"] .dash-clientes { padding: 14px 10px 10px; }
+html[data-tema="cube"] .dash-clientes .bloco-cab { padding: 0 8px; }
+html[data-tema="of"] .dash-clientes { padding: 16px 20px 0; }
+html[data-tema="of"] .dash-clientes .bloco-cab { margin-bottom: 4px; }
+.dash-cli-lista { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+/* a barra de rolagem fica colada na borda do bloco, como na referência */
+html[data-tema="cube"] .dash-cli-lista { margin-right: -6px; gap: 10px; }
+html[data-tema="of"] .dash-cli-lista { margin-right: -20px; padding-right: 12px; }
+html[data-tema="cube"] .dash-cli { padding: 9px 12px; gap: 11px; }
+.dash-cli .btn-texto { flex: none; }
+/* botão "abrir ficha" (avatar + nome + status) — parece só conteúdo da linha */
+.dash-cli-abrir { flex: 1; min-width: 0; display: flex; align-items: center; gap: inherit; padding: 0; border: 0; background: none; color: inherit; text-align: left; border-radius: var(--raio-peq); }
+.dash-clientes .vazio { flex: 1; padding: 24px 12px; }
+
+.dash-cli-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dash-nome { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 14px; font-weight: 700; }
+html[data-tema="of"] .dash-nome { font-size: 13px; font-weight: 600; }
+.dash-nome .ponto-status { flex: none; line-height: 0; }
+.dash-espera { flex: none; line-height: 0; }
+.dash-sub { font-size: 12px; font-weight: var(--peso-normal); }
+html[data-tema="of"] .dash-sub { font-weight: 400; }
+html[data-tema="of"] .dash-sub.mudo { color: var(--mudo); }
+
+/* ---------- Comissões ---------- */
+.dash-com { display: flex; flex-direction: column; min-height: 0; container-type: inline-size; }
+html[data-tema="cube"] .dash-com { padding: 16px 14px 14px; }
+html[data-tema="cube"] .dash-com > .bloco-cab { padding: 0 4px 0 6px; margin-bottom: 14px; }
+html[data-tema="of"] .dash-com { padding: 16px 20px 8px; }
+.dash-direita { margin-left: auto; }
+
+.dash-tabela { --colunas: minmax(0, 1fr) 190px 110px 130px; flex: 1; min-height: 0; overflow-y: auto; }
+/* janela estreita: colunas mais justas pra o nome do cliente não sumir */
+@container (max-width: 660px) {
+  .dash-tabela { --colunas: minmax(0, 1fr) 104px 88px 104px; }
+  .dash-tabela .tabela-cab, .dash-tabela .linha { gap: 12px; }
+  html[data-tema="cube"] .dash-tabela .linha { padding-left: 12px; padding-right: 10px; }
+  html[data-tema="cube"] .dash-tabela .tabela-cab { padding-left: 12px; padding-right: 10px; }
+}
+.dash-tabela .tabela-cab { position: sticky; top: 0; z-index: 1; background: var(--card); }
+html[data-tema="cube"] .dash-tabela .tabela-cab { padding-bottom: 8px; }
+html[data-tema="cube"] .dash-com-lista { gap: 10px; }
+.dash-ped { min-height: 0; }
+.dash-ped-cli { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.dash-etapa { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.dash-etapa-rot { font-size: 12px; font-weight: var(--peso-forte); }
+.dash-prazo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dash-prazo-1 { font-size: 13px; font-weight: 700; white-space: nowrap; }
+html[data-tema="of"] .dash-prazo-1 { font-weight: 600; }
+.dash-prazo .dash-sub { white-space: nowrap; }
+
+.dash-vazio { flex: 1; display: flex; align-items: center; justify-content: center; }

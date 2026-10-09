@@ -1,1 +1,178 @@
-/* tela pedidos — preenchida pelo módulo da tela */
+/* Tela Pedidos — só tokens. O mesmo HTML nos dois modos; o "of" ajusta com html[data-tema="of"]. */
+
+/* ---------- Painel esquerdo: lista ---------- */
+.ped-lista { width: 240px; flex: none; padding: 16px 10px 12px; overflow-y: auto; position: relative; }
+html[data-tema="of"] .ped-lista { padding: 14px 10px 12px; }
+.paineis > .ped-lista > * { flex: none; }
+.ped-lista-cab { display: flex; align-items: baseline; gap: 8px; padding: 2px 10px 4px; }
+.ped-lista-cab .titulo-bloco { font-size: calc(var(--t-titulo) + 1px); }
+.ped-lista-nada { padding: 12px 10px; }
+.ped-grupo .grupo-rot { padding-top: 14px; }
+.ped-lista .item { gap: 10px; }
+.ped-item-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ped-item-txt > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ped-item-ponto { flex: none; display: inline-flex; padding: 0 4px; }
+
+.ped-grupo-concl { margin-top: 6px; }
+.ped-concl { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: none; text-align: left; cursor: pointer; border-radius: var(--raio-peq); padding-right: 10px; padding-bottom: 8px; }
+.ped-concl:hover { color: var(--suave); }
+.ped-concl-chev { display: inline-flex; color: var(--mudo); transition: transform .15s; }
+.ped-concl[aria-expanded="true"] .ped-concl-chev { transform: rotate(180deg); }
+
+/* ---------- Painel central: detalhe ---------- */
+.bloco.ped-detalhe { overflow-y: auto; }
+.paineis > .ped-detalhe > * { flex: none; }
+html[data-tema="cube"] .ped-detalhe .capa { min-height: 150px; padding: 18px 24px 16px; }
+.ped-capa-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ped-capa-sub { font-size: 13px; color: var(--suave); font-weight: var(--peso-medio); }
+html[data-tema="of"] .ped-capa-sub { color: var(--mudo); font-weight: 400; }
+.ped-detalhe .capa .chip { flex: none; margin-bottom: 1px; }
+html[data-tema="of"] .ped-detalhe .capa { align-items: center; padding-top: 24px; }
+
+.ped-corpo { display: flex; flex-direction: column; gap: 22px; padding: 20px 24px 24px; }
+html[data-tema="of"] .ped-corpo { gap: 20px; padding: 18px 24px 24px; }
+/* o Chromium põe align-items:flex-start em <button>; sem isso a .barra fica com largura 0 */
+.ped-detalhe .etapa { align-items: stretch; }
+.ped-detalhe .etapa:hover .barra { filter: brightness(1.25); }
+.ped-detalhe .etapa:not(.feito):not(.atual):hover .nome { color: var(--suave); }
+.ped-secao .bloco-cab { margin-bottom: 10px; min-height: 22px; }
+.ped-secao-tit { font-size: 15px; }
+.ped-secao-tit label { cursor: default; }
+html[data-tema="of"] .ped-secao-tit { font-size: 14px; font-weight: 500; }
+.ped-links { margin-left: auto; display: inline-flex; align-items: center; gap: 14px; }
+
+/* Referências */
+.ped-refs { border-radius: var(--raio-bloco); transition: box-shadow .12s; }
+.ped-refs.arrastando { box-shadow: 0 0 0 2px var(--azul); }
+.ped-refs-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.ped-refs .ref { position: relative; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--raio-bloco); overflow: hidden; background: var(--interno); color: var(--apagado); cursor: pointer; }
+html[data-tema="of"] .ped-refs .ref { background: none; border: 1px solid var(--borda); }
+.ped-refs .ref img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ped-refs .ref:hover img { filter: brightness(1.1); }
+.ped-refs-vazio { grid-column: 1 / -1; height: 72px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px dashed var(--tracejado); border-radius: var(--raio-bloco); background: var(--interno-2); color: var(--apagado); font-size: 12px; font-weight: var(--peso-medio); }
+html[data-tema="of"] .ped-refs-vazio { background: none; font-weight: 400; }
+.ped-refs.arrastando .ped-refs-vazio { border-color: var(--azul); color: var(--azul-texto); }
+
+/* Entrega */
+.ped-detalhe .slot:not(.cheio) { cursor: pointer; transition: border-color .12s, color .12s; }
+.ped-detalhe .slot:not(.cheio):hover { border-color: color-mix(in srgb, var(--azul) 55%, var(--tracejado)); color: var(--suave); }
+.ped-detalhe .slot.cheio { cursor: pointer; }
+/* botão transparente sobre a imagem: abre a pasta (clique ou teclado) */
+.ped-slot-abrir { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: inherit; background: none; cursor: pointer; }
+.ped-slot-abrir:focus-visible { outline: 2px solid var(--azul); outline-offset: -2px; }
+.ped-detalhe .slot:focus-within .remover { opacity: 1; }
+.ped-slot-num { position: absolute; left: 8px; bottom: 8px; min-width: 22px; height: 22px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--raio-pill); background: var(--chip-fundo); border: 1px solid var(--chip-borda); color: var(--texto); font-size: 11px; font-weight: var(--peso-forte); }
+.ped-detalhe .slot .remover:focus-visible { opacity: 1; }
+
+/* Ajustes e notas */
+.ped-ajustes { display: flex; flex-direction: column; gap: 12px; }
+.ped-ajuste .caixa { margin-top: 6px; white-space: pre-wrap; line-height: 1.5; font-size: 13px; color: var(--suave); }
+.ped-notas { min-height: 88px; }
+
+/* ---------- Painel direito: cliente ---------- */
+.ped-cli { width: 300px; flex: none; }
+.paineis > .ped-cli > * { flex: none; }
+.paineis > .ped-cli > .ped-cli-corpo { flex: 1; }
+.ped-cli-corpo { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 6px 16px 12px; }
+html[data-tema="of"] .ped-cli-corpo { padding: 8px 16px 12px; gap: 14px; }
+.ped-cli-nome { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; min-width: 0; }
+.ped-cli-titulo { max-width: 100%; border: 0; background: none; padding: 0; color: var(--texto); font-size: 17px; font-weight: var(--peso-titulo); letter-spacing: -.01em; }
+button.ped-cli-titulo:hover { text-decoration: underline; text-underline-offset: 3px; }
+html[data-tema="of"] .ped-cli-titulo { font-size: 15px; }
+.ped-cli-sub { max-width: 100%; font-size: 12px; color: var(--mudo); font-weight: var(--peso-normal); }
+html[data-tema="of"] .ped-cli-sub { font-weight: 400; }
+.ped-cli .fato { min-width: 0; }
+.ped-cli .fato-valor { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ped-conversa { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.ped-conversa .avatar { margin: 2px; }
+.ped-conv-txt { flex: 1; min-width: 0; }
+.ped-conv-t1 { font-size: 13px; font-weight: var(--peso-forte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ped-conv-t2 { margin-top: 1px; font-size: 12px; font-weight: var(--peso-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ped-conversa .btn-texto { flex: none; }
+
+.ped-espaco { flex: 1 1 auto; min-height: 2px; }
+.ped-acoes { display: flex; flex-direction: column; gap: 8px; }
+html[data-tema="of"] .ped-acoes { gap: 6px; }
+.ped-acoes .btn:disabled { opacity: .6; }
+.ped-mais { align-self: center; padding: 4px 8px; color: var(--suave); font-weight: var(--peso-medio); }
+html[data-tema="of"] .ped-mais { color: var(--texto); }
+.ped-mais:hover { color: var(--texto); }
+
+/* Menu "Mais opções" */
+.ped-menu { min-width: 240px; }
+.ped-menu .item .ic { flex: none; color: var(--suave); }
+.ped-menu .item .t1 { font-size: 13px; }
+.ped-menu .ped-menu-perigo, .ped-menu .ped-menu-perigo .ic { color: var(--vermelho-texto); }
+
+/* Barras de rolagem dos painéis só aparecem com o mouse em cima (as referências não mostram nenhuma) */
+html[data-tema] .ped-lista::-webkit-scrollbar-thumb, html[data-tema] .ped-detalhe::-webkit-scrollbar-thumb, html[data-tema] .ped-cli-corpo::-webkit-scrollbar-thumb { background: transparent; }
+html[data-tema] .ped-lista:hover::-webkit-scrollbar-thumb, html[data-tema] .ped-detalhe:hover::-webkit-scrollbar-thumb, html[data-tema] .ped-cli-corpo:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--mudo) 35%, transparent); }
+
+/* ---------- Vazio ---------- */
+.ped-vazio { display: flex; align-items: center; justify-content: center; }
+.ped-vazio .vazio .btn { margin-top: 12px; }
+
+/* ---------- Janela estreita / baixa (mínimo do app: 1100×700) ---------- */
+.ped-secao .bloco-cab { flex-wrap: wrap; row-gap: 6px; }
+.ped-detalhe .etapa .nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ped-detalhe .capa { flex-wrap: wrap; row-gap: 10px; }
+/* painel do cliente estreito: o ícone do botão nunca encolhe; a dica à direita é que corta */
+.ped-acoes .btn .ic { flex: none; }
+.ped-acoes .btn .dica { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Lista vira um trilho de avatares. O texto sai da tela mas fica no tooltip e para leitores de tela.
+   1339px: no cube a lateral mais larga e o espaço entre os painéis já apertam o centro abaixo disso. */
+@media (max-width: 1339px) {
+  .ped-lista { width: 72px; padding: 12px 8px; }
+  html[data-tema="of"] .ped-lista { padding: 12px 8px; }
+  .ped-lista-cab, .ped-lista-nada { display: none; }
+  .ped-lista .ped-grupo > .grupo-rot:not(.ped-concl), .ped-item-txt, .ped-concl > span:first-child {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .ped-grupo + .ped-grupo { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--borda); }
+  .ped-lista .item { position: relative; justify-content: center; padding: 7px 0; }
+  .ped-item-ponto { position: absolute; top: 5px; right: 5px; padding: 0; }
+  .ped-concl { justify-content: center; padding: 8px 0; }
+  .ped-cli { width: 272px; }
+  /* fatos em ~75px: menos recuo (e valor menor no of), senão "metade" vira "meta…" — mesmo com barra de rolagem */
+  html[data-tema="cube"] .ped-cli .fato { padding-left: 4px; padding-right: 4px; }
+  html[data-tema="of"] .ped-cli .fato { padding-left: 8px; padding-right: 4px; }
+  html[data-tema="of"] .ped-cli .fato:first-child { padding-left: 2px; }
+  html[data-tema="of"] .ped-cli .fato-valor { font-size: 14px; }
+}
+/* janela mínima no cube: "COMEÇADO" em caixa alta não cabe na barra de etapas com 11px */
+@media (max-width: 1199px) {
+  html[data-tema="cube"] .ped-detalhe .etapa .nome { font-size: 10px; letter-spacing: .04em; }
+}
+@media (max-height: 800px) {
+  .ped-cli .perfil-topo { height: 100px; }
+  .ped-cli .perfil-topo .capa-mini { height: 66px; }
+  .ped-cli .perfil-topo .avatar { --t: 56px !important; top: 38px; }
+  html[data-tema="of"] .ped-cli .perfil-topo { height: 76px; }
+  html[data-tema="of"] .ped-cli .perfil-topo .avatar { top: 12px; }
+  .ped-cli-corpo, html[data-tema="of"] .ped-cli-corpo { gap: 8px; }
+  .ped-acoes { gap: 6px; }
+  .ped-acoes .btn { height: 38px; }
+  html[data-tema="of"] .ped-acoes .btn { height: 33px; }
+  html[data-tema="cube"] .ped-detalhe .capa { min-height: 128px; }
+}
+@media (max-height: 740px) {
+  .ped-cli .perfil-topo { height: 84px; }
+  .ped-cli .perfil-topo .capa-mini { height: 54px; }
+  .ped-cli .perfil-topo .avatar { --t: 48px !important; top: 30px; }
+  html[data-tema="of"] .ped-cli .perfil-topo { height: 66px; }
+  .ped-cli-corpo, html[data-tema="of"] .ped-cli-corpo { gap: 6px; padding-bottom: 8px; }
+  .ped-cli .fato { padding-top: 6px; padding-bottom: 6px; }
+  .ped-conversa { padding: 7px 12px; }
+  .ped-acoes .btn { height: 34px; }
+  html[data-tema="of"] .ped-acoes .btn { height: 32px; }
+}
+
+/* ---------- Modais ---------- */
+.ped-opcional { font-weight: 400; color: var(--mudo); }
+.ped-erro { font-size: 12px; color: var(--vermelho-texto); font-weight: var(--peso-medio); }
+.ped-erro:empty { display: none; }
+.input.ped-invalido { border-color: var(--vermelho); }
+.ped-rapidos { display: flex; gap: 8px; }
+.ped-modal-texto { margin: 0; line-height: 1.55; }
+.ped-pag-fatos .fato-valor { white-space: nowrap; }

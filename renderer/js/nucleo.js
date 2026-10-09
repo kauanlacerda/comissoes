@@ -182,7 +182,7 @@
     return { porMoeda, pedidos };
   };
   const emAberto = (p) => p.etapa === 'aceito' || p.etapa === 'comecado';
-  App.venceEmBreve = () => App.pedidosAtivos().filter(p => emAberto(p) && p.prazo && App.diasAte(p.prazo) >= 0 && App.diasAte(p.prazo) <= (App.estado.config.prazoAlertaDias || 2)).sort((a, b) => a.prazo.localeCompare(b.prazo));
+  App.venceEmBreve = () => App.pedidosAtivos().filter(p => emAberto(p) && p.prazo && App.diasAte(p.prazo) >= 0 && App.diasAte(p.prazo) <= (App.estado.config.prazoAlertaDias ?? 2)).sort((a, b) => a.prazo.localeCompare(b.prazo));
   App.atrasados = () => App.pedidosAtivos().filter(p => emAberto(p) && p.prazo && App.diasAte(p.prazo) < 0).sort((a, b) => a.prazo.localeCompare(b.prazo));
   App.proximasEntregas = () => App.pedidosAtivos().filter(p => emAberto(p) && p.prazo).sort((a, b) => a.prazo.localeCompare(b.prazo));
   App.entreguesNoPedido = (p) => p.entregas.filter(Boolean).length;

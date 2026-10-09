@@ -9,6 +9,8 @@ let store = null;
 
 // testes automáticos apontam os dados pra uma pasta temporária (nunca mexem nos dados reais)
 if (process.env.COMISSOES_DADOS) app.setPath('userData', process.env.COMISSOES_DADOS);
+// datas, números e campos nativos em português (dd/mm/aaaa)
+app.commandLine.appendSwitch('lang', 'pt-BR');
 
 // ---------- Caminhos ----------
 const dirDados = () => app.getPath('userData');

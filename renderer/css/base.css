@@ -258,6 +258,7 @@ html[data-tema="of"] .etapa .nome { font-size: 12px; font-weight: 500; }
 /* ---------- Botões ---------- */
 .btn { height: var(--alt-btn); padding: 0 16px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 10px; border: 1px solid transparent; border-radius: var(--raio-ctrl); background: none; color: var(--suave); font-size: var(--t-base); font-weight: var(--peso-forte); white-space: nowrap; }
 .btn:disabled { opacity: .45; cursor: default; }
+.btn .ic, .btn-cab .ic, .busca .ic, .link .ic { flex: none; }
 .btn .dica { margin-left: auto; padding-left: 8px; font-size: 11px; font-weight: var(--peso-normal); color: var(--mudo); }
 .btn-primario { background: var(--btn-pri); color: #fff; box-shadow: var(--btn-pri-sombra); }
 .btn-acento { background: var(--btn-acento); border-color: var(--btn-acento-borda); color: var(--btn-acento-texto); box-shadow: var(--btn-pri-sombra); }

@@ -9,6 +9,7 @@ const os = require('os');
 
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'comissoes-cap-')));
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
+app.commandLine.appendSwitch('lang', 'pt-BR');
 const [saida = path.join(os.tmpdir(), 'comissoes-capturas'), temaArg = 'ambos', telasArg] = process.argv.slice(2).filter(a => !a.startsWith('--') && !a.endsWith('capturar.js') && a !== '.');
 const temas = temaArg === 'ambos' ? ['cube', 'of'] : [temaArg];
 const TODAS = ['dashboard', 'pedidos', 'pedido', 'clientes', 'ficha', 'config', 'novo-cliente', 'novo-pedido', 'busca'];

@@ -1,1 +1,196 @@
-/* tela clientes — preenchida pelo módulo da tela */
+/* Tela Clientes — lista, ficha, perfil e modal "Novo cliente".
+   Só tokens var(--...). Diferenças do modo quadrado em html[data-tema="of"]. */
+
+/* ---------- Painéis ---------- */
+/* .cl-paineis e .cl-ficha são "containers": a tela se ajusta à largura que sobra pra ela
+   (janela mínima 1100×700, notebook 1280×800, lateral recolhida…), não à largura da janela */
+.cl-paineis { container: cl-paineis / inline-size; }
+.paineis > .bloco.cl-lista { flex: none; width: 240px; padding: 20px 12px 12px; }
+.paineis > .bloco.cl-ficha { overflow-y: auto; overflow-x: hidden; container: cl-ficha / inline-size; }
+.paineis > .bloco.cl-perfil { flex: none; width: 300px; }
+html[data-tema="of"] .paineis > .bloco.cl-lista { padding: 16px 12px 12px; }
+/* perto da janela mínima (cube até ~1130px): a lista cede 30px pra ficha não ficar abaixo de ~260px.
+   O perfil fica em 300px: abaixo disso o ID do Discord (18 dígitos), o "Esperando há 48 min" e o
+   "Atualizar dados" não cabem inteiros. No of sobra espaço e a lista nunca encolhe */
+@container cl-paineis (max-width: 839px) {
+  .paineis > .bloco.cl-lista { width: 210px; }
+}
+
+/* ---------- Lista (esquerda) ---------- */
+.cl-lista-cab { padding: 0 10px; margin-bottom: 4px; }
+.cl-titulo { font-size: var(--t-pagina); }
+.cl-lista-rolar { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
+.cl-lista .item { flex: none; padding: 8px 10px; }
+.cl-lista .grupo-rot { flex: none; }
+.cl-item-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cl-item-txt .t1, .cl-item-txt .t2 { display: block; }
+.cl-item-ponto { flex: none; display: inline-flex; padding: 0 4px; }
+.btn.cl-add { flex: none; height: 44px; margin-top: 12px; border: 1.5px dashed var(--tracejado); border-radius: var(--raio-bloco); background: none; color: var(--suave); font-size: var(--t-base); }
+.btn.cl-add:hover { border-color: var(--azul); color: var(--azul-texto); filter: none; }
+html[data-tema="of"] .btn.cl-add { height: 40px; border-width: 1px; font-weight: 500; }
+
+/* ---------- Ficha (meio) ---------- */
+.cl-ficha .capa { min-height: 150px; padding: 20px 24px 18px; }
+html[data-tema="of"] .cl-ficha .capa { min-height: 104px; padding: 18px 24px; align-items: center; }
+.cl-capa-txt { flex: 1; min-width: 0; }
+.cl-capa-txt h2 { line-height: 1.2; }
+.cl-capa-sub { margin-top: 6px; font-size: 13px; font-weight: var(--peso-medio); color: var(--suave); }
+html[data-tema="of"] .cl-capa-sub { margin-top: 4px; font-weight: 400; color: var(--mudo); }
+.cl-capa .chip { flex: none; }
+html[data-tema="cube"] .cl-capa .chip { margin-bottom: 2px; }
+
+.cl-corpo { flex: 1 0 auto; display: flex; flex-direction: column; gap: 22px; padding: 14px 24px 20px; }
+html[data-tema="of"] .cl-corpo { padding: 14px 24px 18px; gap: 20px; }
+.cl-secao .bloco-cab { margin-bottom: 10px; }
+.cl-secao .bloco-cab > * { flex: none; white-space: nowrap; }
+.cl-cab-link { margin-left: auto; }
+
+/* fatos: no cube o Figma alinha à esquerda */
+.cl-fatos { --n: 4; }
+html[data-tema="cube"] .cl-fatos .fato { align-items: flex-start; text-align: left; padding: 11px 10px 12px 12px; border-radius: var(--raio-ctrl); gap: 5px; }
+html[data-tema="cube"] .cl-fatos .fato-valor { font-size: 14px; }
+.cl-fatos .fato-valor { max-width: 100%; }
+.cl-fatos .fato-rotulo { display: inline-flex; align-items: center; gap: 5px; }
+.cl-receber { color: var(--amarelo); }
+html[data-tema="of"] .cl-receber { color: var(--azul-texto); }
+html[data-tema="of"] .cl-fatos { padding: 2px 0; }
+.cl-fato-btn { border: 0; font: inherit; color: inherit; cursor: pointer; }
+.cl-fato-btn .ic { opacity: 0; transition: opacity .15s; }
+.cl-fato-btn:hover .ic, .cl-fato-btn:focus-visible .ic { opacity: .9; }
+html[data-tema="cube"] .cl-fato-btn:hover { background: var(--hover); box-shadow: inset 0 0 0 1px var(--borda); }
+html[data-tema="of"] .cl-fato-btn:hover { background: var(--hover); }
+
+/* histórico */
+.cl-tabela { --colunas: minmax(0, 1fr) 92px 92px 100px; }
+.cl-tabela .tabela-cab, .cl-tabela .linha { gap: 12px; }
+.cl-tabela .linha { padding-top: 11px; padding-bottom: 11px; }
+html[data-tema="cube"] .cl-tabela .linha.clicavel:hover { background: var(--ativo); }
+.cl-tabela .linha:focus-visible { outline-offset: -2px; }
+.cl-cel { min-width: 0; }
+.cl-ped-tit { font-size: var(--t-base); font-weight: var(--peso-forte); }
+.cl-ped-sub { margin-top: 3px; font-size: 12px; color: var(--mudo); font-weight: var(--peso-normal); }
+html[data-tema="of"] .cl-ped-sub { font-weight: 400; }
+.cl-etapa { display: flex; flex-direction: column; gap: 7px; font-size: 12px; font-weight: var(--peso-forte); }
+.cl-valor { font-size: 13px; font-weight: var(--peso-medio); }
+.cl-sem-pedidos { padding: 4px 2px; font-size: 13px; color: var(--mudo); }
+
+/* notas */
+.cl-notas { flex: 1 0 auto; display: flex; flex-direction: column; min-height: 160px; }
+.cl-salva { margin-left: auto; font-size: 12px; color: var(--apagado); }
+textarea.cl-notas-txt { flex: 1; min-height: 110px; resize: none; font-size: 14px; color: var(--suave); }
+html[data-tema="of"] textarea.cl-notas-txt { font-size: 13px; }
+
+/* ficha média (≈1280–1370px de janela): fatos em 2×2 e a tabela sem a coluna Valor
+   (o "a receber" segue nos fatos) */
+@container cl-ficha (max-width: 519px) {
+  .cl-fatos { --n: 2; }
+  html[data-tema="of"] .cl-fatos { row-gap: 10px; }
+  html[data-tema="of"] .cl-fatos .fato:nth-child(3) { border-left: 0; padding-left: 2px; }
+  .cl-tabela { --colunas: minmax(0, 1fr) 84px 100px; }
+  .cl-tabela .tabela-cab > :nth-child(3), .cl-tabela .cl-valor { display: none; }
+}
+/* ficha estreita (janela mínima): cada pedido vira 2 linhas — título | pagamento / etapa | valor.
+   As barrinhas saem (não cabem); a etapa continua no texto colorido */
+@container cl-ficha (max-width: 389px) {
+  .cl-ficha .capa, html[data-tema="of"] .cl-ficha .capa { padding-left: 18px; padding-right: 18px; }
+  html[data-tema="cube"] .cl-ficha .capa h2 { font-size: 22px; }
+  .cl-corpo, html[data-tema="of"] .cl-corpo { padding-left: 16px; padding-right: 16px; }
+  .cl-secao .bloco-cab .contagem { display: none; }
+  .cl-tabela { --colunas: minmax(0, 1fr) auto; }
+  .cl-tabela .tabela-cab { display: none; }
+  .cl-tabela .linha { row-gap: 6px; column-gap: 8px; }
+  html[data-tema="cube"] .cl-tabela .linha { padding-left: 10px; padding-right: 10px; }
+  .cl-tabela .linha > :nth-child(1) { grid-area: 1 / 1; }
+  .cl-tabela .linha > :nth-child(4) { grid-area: 1 / 2; justify-self: end; }
+  .cl-tabela .cl-etapa { grid-area: 2 / 1; }
+  .cl-tabela .cl-etapa .etapas-mini { display: none; }
+  .cl-tabela .cl-valor { display: block; grid-area: 2 / 2; justify-self: end; }
+}
+
+/* ---------- Perfil (direita) ---------- */
+.cl-perfil .perfil-topo { height: 124px; }
+html[data-tema="of"] .cl-perfil .perfil-topo { height: 92px; }
+/* cube (Figma): o degradê cobre o avatar inteiro e some no fundo do card logo acima do nome,
+   sem a faixa de borda reta da base; o avatar ganha um anel claro no lugar do recorte escuro */
+html[data-tema="cube"] .cl-perfil .perfil-topo .capa-mini {
+  height: 100%;
+  background: linear-gradient(180deg, var(--cor-capa), color-mix(in srgb, var(--cor-capa) 82%, var(--card)) 34%, color-mix(in srgb, var(--cor-capa) 28%, var(--card)) 68%, var(--card) 98%);
+}
+html[data-tema="cube"] .cl-perfil .perfil-topo .avatar { box-shadow: 0 0 0 2px color-mix(in srgb, var(--cor-avatar) 45%, var(--texto)); }
+.cl-perfil-corpo { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 16px 10px; }
+html[data-tema="of"] .cl-perfil-corpo { padding: 10px 16px 12px; gap: 10px; }
+.cl-perfil-id { flex: none; text-align: center; padding: 0 4px 4px; }
+.cl-perfil-nome { font-size: var(--t-pagina); font-weight: var(--peso-titulo); letter-spacing: -.01em; }
+.cl-perfil-arroba { margin-top: 3px; font-size: 13px; color: var(--mudo); font-weight: var(--peso-medio); }
+html[data-tema="of"] .cl-perfil-arroba { font-weight: 400; }
+
+.cl-caixa { flex: none; display: flex; flex-direction: column; gap: 8px; }
+.cl-caixa-cab { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cl-atualizado { margin-left: auto; font-size: 11px; color: var(--mudo); font-weight: var(--peso-normal); }
+html[data-tema="of"] .cl-atualizado { font-weight: 400; }
+.cl-linha { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cl-campo { flex: 1; min-width: 0; }
+.cl-rot { font-size: 12px; color: var(--mudo); font-weight: var(--peso-normal); line-height: 1.45; }
+html[data-tema="of"] .cl-rot { font-weight: 400; }
+.cl-val { margin-top: 2px; font-size: 14px; font-weight: var(--peso-forte); }
+html[data-tema="of"] .cl-val { font-size: 13px; }
+.cl-val-rbx { margin: 0 0 2px; }
+.cl-id { font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.cl-linha .btn-icone { flex: none; padding: 0; }
+.cl-perfil .btn .ic, .nc-linha .btn .ic, .cl-add .ic { flex: none; }
+.cl-link-acao { align-self: flex-start; }
+
+.cl-conversa { flex: none; display: flex; align-items: center; gap: 12px; padding: 11px 12px; }
+.cl-conv-tit { font-size: 13px; font-weight: var(--peso-forte); }
+.cl-conv-sub { margin-top: 2px; font-size: 12px; font-weight: var(--peso-normal); }
+.cl-conversa .btn-texto { flex: none; }
+
+.cl-espaco { flex: 1; min-height: 4px; }
+.cl-acoes { flex: none; display: flex; flex-direction: column; gap: 8px; }
+.cl-acoes .btn { padding: 0 14px; }
+.cl-acoes .btn .dica { padding-left: 6px; }
+.btn.cl-mais { height: 30px; gap: 6px; color: var(--suave); font-size: 13px; }
+html[data-tema="of"] .btn.cl-mais { height: 30px; font-weight: 500; }
+.btn.cl-mais:hover { color: var(--texto); }
+/* menu "Mais opções": só o desta tela (classe cl-menu posta no aoMontar), nunca o .menu-flutuante compartilhado */
+.cl-menu .item .ic { flex: none; color: var(--mudo); }
+.cl-menu .cl-menu-perigo, .cl-menu .cl-menu-perigo .t1, .cl-menu .cl-menu-perigo .ic { color: var(--vermelho-texto); }
+
+/* ---------- Vazio ---------- */
+.bloco.cl-vazio { flex: 1; display: flex; align-items: center; justify-content: center; }
+.cl-vazio .vazio p { max-width: 380px; }
+.cl-vazio-btn { margin-top: 10px; }
+.cl-passos { list-style: none; margin: 22px 0 0; padding: 0; display: flex; gap: 10px; text-align: left; }
+.cl-passos li { width: 170px; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--raio-ctrl); background: var(--interno); font-size: 12px; line-height: 1.45; color: var(--mudo); }
+.cl-passos b { color: var(--texto); font-weight: var(--peso-forte); font-size: 13px; }
+.cl-passos .num { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--azul) 18%, transparent); color: var(--azul-texto); font-size: 11px; font-weight: var(--peso-forte); }
+html[data-tema="of"] .cl-passos { gap: 0; border: 1px solid var(--borda); border-radius: 6px; }
+html[data-tema="of"] .cl-passos li { background: none; border-radius: 0; }
+html[data-tema="of"] .cl-passos li + li { border-left: 1px solid var(--borda); }
+html[data-tema="of"] .cl-passos .num { border-radius: 4px; }
+
+/* ---------- Modal "Novo cliente" ---------- */
+.nc-linha > .btn { flex: none; width: 124px; height: var(--alt-input); justify-content: center; gap: 8px; }
+.nc-id { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.nc-opc { margin-left: 4px; color: var(--apagado); font-weight: var(--peso-normal); }
+html[data-tema="of"] .nc-opc { font-weight: 400; }
+.nc-ajuda { display: flex; align-items: flex-start; gap: 7px; }
+.nc-ajuda .ic { flex: none; margin-top: 2px; }
+.nc-erro { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; font-size: 12px; font-weight: var(--peso-medio); color: var(--vermelho-texto); line-height: 1.45; }
+.nc-erro .ic { flex: none; }
+.nc-erro .link { font-size: 12px; }
+.nc-erro-mais { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding-left: 22px; }
+.nc-erro-dica { color: var(--mudo); font-weight: var(--peso-normal); }
+html[data-tema="of"] .nc-erro-dica { font-weight: 400; }
+.nc-erro:empty, .nc-slot:empty { display: none; }
+.nc-slot { margin-top: 2px; }
+.nc-res { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.nc-res-peq { padding: 8px 12px; }
+.nc-res-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nc-res-nome { font-size: 14px; font-weight: var(--peso-forte); }
+.nc-res-sub { font-size: 12px; color: var(--mudo); font-weight: var(--peso-normal); }
+html[data-tema="of"] .nc-res-nome { font-size: 13px; }
+html[data-tema="of"] .nc-res-sub { font-weight: 400; }
+.nc-res .pill { flex: none; }
+.nc-abrir { align-self: flex-start; margin-top: 4px; font-size: 12px; }
+.nc-marcador { align-self: flex-start; font-size: var(--t-base); }
