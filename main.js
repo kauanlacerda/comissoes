@@ -3,13 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 const Store = require('./store');
-const { criarConta, nuvemConfigurada } = require('./conta');
+const { criarConta, situacaoNuvem } = require('./conta');
 
 let win = null;
 let store = null;
 let conta = null;
 let contaPronta = Promise.resolve();
-let saindo = false;
+let saindo = false, instalando = false, relancar = false;
 const avisar = (canal, dados) => { if (win && !win.isDestroyed()) win.webContents.send(canal, dados); };
 
 // testes automáticos apontam os dados pra uma pasta temporária (nunca mexem nos dados reais)
@@ -198,6 +198,8 @@ function importarArquivo({ pedidoId, tipo, caminho, slot }) {
 function registrarIpc() {
   ipcMain.handle('dados:ler', () => store.get());
   ipcMain.handle('dados:salvar', (_e, estado) => { const ok = store.set(estado); if (ok && conta) conta.marcarMudanca(); return ok; });
+  // a tela tem edição no atraso de 150 ms: conta como mudança já (a nuvem não passa por cima)
+  ipcMain.on('dados:sujo', () => { if (conta) conta.marcarMudanca(true); });
   ipcMain.handle('dados:abrirPasta', () => shell.openPath(dirDados()));
   ipcMain.handle('dados:exportar', async () => {
     const r = await dialog.showSaveDialog(win, { title: 'Exportar backup', defaultPath: 'comissoes-backup.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
@@ -266,25 +268,33 @@ function registrarIpc() {
   });
   ipcMain.handle('sistema:copiar', (_e, texto) => { clipboard.writeText(String(texto || '')); return true; });
   // ---------- conta ----------
-  ipcMain.handle('conta:estado', async () => { await Promise.race([contaPronta, new Promise(r => setTimeout(r, 6000))]); return conta.estado(); });
+  // só espera a conta iniciar se ninguém entrou ainda (com sessão guardada a tela abre na hora, mesmo sem internet)
+  ipcMain.handle('conta:estado', async () => { if (!conta.estado().logado) await Promise.race([contaPronta, new Promise(r => setTimeout(r, 6000))]); return conta.estado(); });
   ipcMain.handle('conta:entrar', (_e, email, senha) => conta.entrar(email, senha));
   ipcMain.handle('conta:criar', (_e, email, senha, nome) => conta.criar(email, senha, nome));
   ipcMain.handle('conta:sair', () => conta.sair());
+  ipcMain.handle('conta:adotar', (_e, sim) => conta.adotar(!!sim));
   ipcMain.handle('conta:sincronizar', () => conta.sincronizar());
 
   // ---------- atualização automática ----------
   ipcMain.handle('atualizacao:estado', () => ({ ...atualizacao, versaoAtual: app.getVersion() }));
   ipcMain.handle('atualizacao:checar', async () => {
-    if (!atualizador) return { ...atualizacao, versaoAtual: app.getVersion() };
-    try { await atualizador.checkForUpdates(); } catch (e) { atualizacao = { ...atualizacao, fase: 'erro', erro: String((e && e.message) || e) }; }
+    if (!atualizador || atualizacao.fase === 'pronto') return { ...atualizacao, versaoAtual: app.getVersion() };
+    try { await atualizador.checkForUpdates(); } catch (e) { if (atualizacao.fase !== 'pronto') atualizacao = { ...atualizacao, fase: 'erro', erro: String((e && e.message) || e) }; }
     return { ...atualizacao, versaoAtual: app.getVersion() };
   });
   ipcMain.handle('atualizacao:instalar', async () => {
     if (!atualizador || atualizacao.fase !== 'pronto') return false;
     if (conta) await conta.antesDeFechar(4000);
-    saindo = true;
-    atualizador.quitAndInstall(false, true);
-    return true;
+    // se o instalador falhar na hora, o app segue aberto e o fechar normal volta a enviar pra nuvem
+    let falhou = false;
+    const f = () => { falhou = true; };
+    atualizador.once('error', f);
+    saindo = instalando = true;
+    try { atualizador.quitAndInstall(false, true); } catch { falhou = true; }
+    atualizador.removeListener('error', f);
+    if (falhou) saindo = instalando = false;
+    return !falhou;
   });
 
   ipcMain.on('janela:tema', (_e, tema) => {
@@ -299,7 +309,11 @@ let atualizacao = { fase: 'dev', versao: '', pct: 0, erro: '' };
 function iniciarAtualizacoes() {
   if (!app.isPackaged) return; // rodando do código: nada a atualizar
   try { ({ autoUpdater: atualizador } = require('electron-updater')); } catch { return; }
-  const mudar = (d) => { atualizacao = { ...atualizacao, ...d }; avisar('atualizacao:estado', { ...atualizacao, versaoAtual: app.getVersion() }); };
+  const mudar = (d) => {
+    // versão já baixada fica pronta: procurar de novo ou ficar sem internet não tira o "Reiniciar"
+    if (atualizacao.fase === 'pronto' && ['procurando', 'erro', 'atualizado'].includes(d.fase)) return;
+    atualizacao = { ...atualizacao, ...d }; avisar('atualizacao:estado', { ...atualizacao, versaoAtual: app.getVersion() });
+  };
   atualizacao.fase = 'parado';
   atualizador.autoDownload = true;          // baixa sozinho em segundo plano
   atualizador.autoInstallOnAppQuit = true;  // e instala quando o app fechar, se a pessoa não reiniciar antes
@@ -309,34 +323,41 @@ function iniciarAtualizacoes() {
   atualizador.on('update-downloaded', (i) => mudar({ fase: 'pronto', versao: i.version, pct: 100 }));
   atualizador.on('update-not-available', () => mudar({ fase: 'atualizado' }));
   atualizador.on('error', (e) => mudar({ fase: 'erro', erro: String((e && e.message) || e) }));
-  const checar = () => atualizador.checkForUpdates().catch(() => {});
+  const checar = () => { if (atualizacao.fase !== 'pronto') atualizador.checkForUpdates().catch(() => {}); };
   setTimeout(checar, 8000);
   setInterval(checar, 6 * 3600 * 1000);
 }
 
 // ---------- Conta fora do ar (falha ao iniciar o módulo): o app segue local ----------
 function contaIndisponivel(erro, status = 'erro') {
-  const estado = () => ({ logado: true, semConta: true, email: '', nome: '', sync: { status, pendente: false, ultimo: '', erro } });
+  const estado = () => ({ logado: true, semConta: true, email: '', nome: '', adotar: null, podeUsarLocal: false, sync: { status, pendente: false, ultimo: '', erro } });
   const falha = async () => ({ ok: false, erro: 'A conta está indisponível nesta versão: ' + erro });
-  return { iniciar: async () => {}, estado, entrar: falha, criar: falha, sair: async () => ({ ok: false }), sincronizar: async () => estado(), marcarMudanca() {}, antesDeFechar: async () => {}, precisaEnviar: () => false };
+  return { iniciar: async () => {}, estado, entrar: falha, criar: falha, adotar: async () => estado(), sair: async () => ({ ok: false }), sincronizar: async () => estado(), marcarMudanca() {}, antesDeFechar: async () => {}, precisaEnviar: () => false };
 }
 
 // ---------- Ciclo de vida ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
+  app.on('second-instance', () => {
+    if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); return; }
+    // abriu de novo enquanto fechava (enviando pra nuvem): reabre quando terminar
+    if (saindo && !instalando && !relancar) { relancar = true; app.relaunch(); }
+  });
   app.whenReady().then(() => {
     app.setAppUserModelId('com.sak.comissoes');
     store = new Store(dirDados());
     try {
-      if (!nuvemConfigurada() && !process.env.COMISSOES_CONTA_TESTE) throw Object.assign(new Error('nuvem não configurada'), { semNuvem: true });
+      // COMISSOES_NUVEM=off: só local (os testes automáticos nunca tocam a nuvem de verdade)
+      const nuvem = process.env.COMISSOES_NUVEM === 'off' ? 'sem-nuvem' : process.env.COMISSOES_CONTA_TESTE ? 'ok' : situacaoNuvem();
+      if (nuvem === 'chave-errada') console.error('nuvem.json: essa é a chave secreta (service_role). Use a pública (anon/publishable).');
+      if (nuvem !== 'ok') throw Object.assign(new Error(nuvem === 'chave-errada' ? 'a chave em nuvem.json é a secreta' : 'nuvem não configurada'), { semNuvem: true, status: nuvem });
       conta = criarConta({ dir: dirDados(), store, safeStorage, avisar });
       contaPronta = conta.iniciar().catch(() => {});
     } catch (e) {
       // a conta nunca pode impedir o app de abrir: segue com os dados do PC
       if (!e.semNuvem) console.error('conta indisponível:', e);
-      conta = contaIndisponivel(String((e && e.message) || e), e.semNuvem ? 'sem-nuvem' : 'erro');
+      conta = contaIndisponivel(String((e && e.message) || e), e.semNuvem ? e.status : 'erro');
     }
     registrarIpc();
     criarJanela();

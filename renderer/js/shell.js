@@ -95,7 +95,8 @@
 
   // ---------- Busca (Ctrl+K) ----------
   function abrirBusca() {
-    if (UI.temModal()) return;
+    // na tela de entrada a busca ficaria escondida atrás dela, roubando o foco
+    if (UI.temModal() || (window.Entrada && Entrada.aberta())) return;
     UI.modal({
       titulo: 'Buscar', largura: 560,
       corpo: `<input class="input" data-q placeholder="Nome, @, ID do Discord, pedido ou jogo" autofocus><div class="lista" data-res style="max-height:52vh;overflow:auto"></div>`,
@@ -152,16 +153,22 @@
     try { App.atualizacao = await App.api.atualizacao.estado(); } catch {}
     render();
     if (!App.conta.logado) Entrada.mostrar();
+    // status de envio e progresso do download chegam o tempo todo: trocam só a linha de status;
+    // a tela inteira só é refeita quando muda o que ela mostra (refazer fecha selects e mexe nos campos)
     App.api.conta.onEstado((st) => {
-      const estava = App.conta.logado;
+      const antes = App.conta || {};
       App.conta = st;
-      if (estava && !st.logado) Entrada.mostrar('Você saiu da conta. Entre de novo quando quiser.');
-      else if (App.rota.tela === 'config' && !Entrada.aberta()) render();
+      if (antes.logado && !st.logado) Entrada.mostrar('Você saiu da conta. Entre de novo quando quiser.');
+      else if (App.rota.tela === 'config' && !Entrada.aberta()) {
+        if (['logado', 'semConta', 'nome', 'email'].some(k => antes[k] !== st[k])) render(); else App.telas.config.parcial();
+      }
     });
     App.api.atualizacao.onEstado((st) => {
+      const antes = (App.atualizacao || {}).fase;
       App.atualizacao = st;
       avisoUpdate();
-      if (App.rota.tela === 'config' && !Entrada.aberta()) render();
+      if (App.rota.tela !== 'config' || Entrada.aberta()) return;
+      if ((antes === 'pronto') !== (st.fase === 'pronto')) render(); else App.telas.config.parcial();
     });
     avisoUpdate();
     document.body.classList.add('pronto');

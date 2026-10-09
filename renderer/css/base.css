@@ -369,7 +369,7 @@ html[data-tema="of"] .modal-cab h2 { font-size: 18px; }
 .modal-cab .sub { margin-top: 2px; font-size: 13px; color: var(--mudo); }
 .modal-corpo { display: flex; flex-direction: column; gap: 18px; }
 .modal-rodape { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
-.toasts { position: fixed; right: 20px; bottom: 20px; z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+.toasts { position: fixed; right: 20px; bottom: 20px; z-index: 80; display: flex; flex-direction: column; gap: 8px; }
 .toast { padding: 12px 16px; border-radius: var(--raio-ctrl); background: var(--interno); border: 1px solid var(--borda); box-shadow: var(--sombra-modal); font-size: 13px; font-weight: var(--peso-medio); max-width: 360px; overflow-wrap: anywhere; animation: aparecer .15s ease-out; }
 .toast.erro { border-color: color-mix(in srgb, var(--vermelho) 50%, transparent); color: var(--vermelho-texto); }
 .toast.ok { border-color: color-mix(in srgb, var(--verde) 40%, transparent); }
@@ -401,6 +401,7 @@ html[data-tema="of"] .seg-op { height: 30px; border-radius: 4px; font-weight: 50
 html[data-tema="of"] .seg-op[aria-pressed="true"] { background: var(--interno); }
 
 /* ---------- Tela de entrada (login) ---------- */
+/* fica sobre o app (z 70); avisos (75) e toasts (80) ficam por cima dela, nunca escondidos atrás */
 body.sem-conta .app { visibility: hidden; }
 .entrada { position: fixed; inset: 40px 0 0 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--fundo); overflow-y: auto; }
 .entrada-caixa { width: min(420px, 100%); display: flex; flex-direction: column; gap: 18px; padding: 32px 30px 26px; border-radius: 22px; background: var(--card); border: 1px solid var(--borda); box-shadow: var(--sombra-modal); }
@@ -421,7 +422,7 @@ html[data-tema="of"] .entrada-marca h1 { font-size: 20px; }
 .entrada-nota .ic { flex: none; margin-top: 2px; }
 
 /* ---------- Aviso de atualização pronta ---------- */
-.aviso-update { position: fixed; right: 20px; bottom: 20px; z-index: 55; display: flex; align-items: center; gap: 14px; padding: 12px 12px 12px 16px; border-radius: var(--raio-bloco); background: var(--card); border: 1px solid var(--borda); box-shadow: var(--sombra-modal); animation: aparecer .15s ease-out; }
+.aviso-update { position: fixed; right: 20px; bottom: 20px; z-index: 75; display: flex; align-items: center; gap: 14px; padding: 12px 12px 12px 16px; border-radius: var(--raio-bloco); background: var(--card); border: 1px solid var(--borda); box-shadow: var(--sombra-modal); animation: aparecer .15s ease-out; }
 html[data-tema="cube"] .aviso-update { background: #1a212b; }
 .aviso-update .txt { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .aviso-update .txt b { font-weight: var(--peso-forte); }

@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('api', {
   dados: {
     ler: () => ipcRenderer.invoke('dados:ler'),
     salvar: (estado) => ipcRenderer.invoke('dados:salvar', estado),
+    // avisa na hora que há edição a caminho (a gravação sai 150 ms depois): a nuvem não passa por cima dela
+    sujo: () => ipcRenderer.send('dados:sujo'),
     abrirPasta: () => ipcRenderer.invoke('dados:abrirPasta'),
     exportar: () => ipcRenderer.invoke('dados:exportar'),
     importar: () => ipcRenderer.invoke('dados:importar'),
@@ -15,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
     entrar: (email, senha) => ipcRenderer.invoke('conta:entrar', email, senha),
     criar: (email, senha, nome) => ipcRenderer.invoke('conta:criar', email, senha, nome),
     sair: () => ipcRenderer.invoke('conta:sair'),
+    adotar: (sim) => ipcRenderer.invoke('conta:adotar', !!sim),
     sincronizar: () => ipcRenderer.invoke('conta:sincronizar'),
     onEstado: (cb) => ipcRenderer.on('conta:estado', (_e, st) => cb(st))
   },

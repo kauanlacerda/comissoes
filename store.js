@@ -17,7 +17,10 @@ class Store {
   _load() {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('formato inválido');
+      // chaves desconhecidas ficam (podem ser de uma versão mais nova do app)
       return {
+        ...raw,
         versao: 1,
         config: raw.config && typeof raw.config === 'object' ? raw.config : {},
         clientes: Array.isArray(raw.clientes) ? raw.clientes : [],
@@ -35,8 +38,9 @@ class Store {
   get() { return this.data; }
 
   set(novo) {
-    if (!novo || typeof novo !== 'object') return false;
+    if (!novo || typeof novo !== 'object' || Array.isArray(novo)) return false;
     this.data = {
+      ...novo,
       versao: 1,
       config: novo.config && typeof novo.config === 'object' ? novo.config : {},
       clientes: Array.isArray(novo.clientes) ? novo.clientes : [],
@@ -50,12 +54,14 @@ class Store {
     return true;
   }
 
-  // cópia avulsa antes de operações destrutivas (ex.: importar backup); não entra na limpeza dos 14
+  // cópia avulsa antes de operações destrutivas (ex.: importar backup); guarda as 10 últimas de cada motivo
   snapshot(motivo) {
     try {
       if (!fs.existsSync(this.file)) return;
       fs.mkdirSync(this.backupDir, { recursive: true });
       fs.copyFileSync(this.file, path.join(this.backupDir, motivo + '-' + Date.now() + '.json'));
+      const meus = fs.readdirSync(this.backupDir).filter(f => f.startsWith(motivo + '-') && /^\d+\.json$/.test(f.slice(motivo.length + 1))).sort();
+      while (meus.length > 10) fs.unlinkSync(path.join(this.backupDir, meus.shift()));
     } catch {}
   }
 

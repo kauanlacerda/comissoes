@@ -9,21 +9,32 @@ on:
       - 'v*'
   workflow_dispatch:
 
-permissions:
-  contents: write
+# nada por padrão; só o job que publica pode escrever (Releases)
+permissions: {}
 
 jobs:
   windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Preparar o Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+
+      # o electron-builder publica em v<versão do package.json>, não na tag:
+      # tag e versão diferentes passariam "verdes" sem publicar nada novo
+      - name: Conferir versão da tag
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME" || { echo "::error::A tag $GITHUB_REF_NAME não bate com a versão do package.json"; exit 1; }
 
       - name: Instalar dependências
         run: npm ci

@@ -182,19 +182,28 @@
     'sem-tabela': ['var(--vermelho)', () => 'A nuvem ainda não foi preparada (falta rodar o script no Supabase). Tudo continua salvo neste PC.'],
     erro: ['var(--vermelho)', () => 'Não deu pra sincronizar agora. O app tenta de novo sozinho em 1 minuto.'],
     desconectado: ['var(--mudo)', () => 'Desconectado'],
-    'sem-nuvem': ['var(--mudo)', () => 'Esta versão ainda não tem a nuvem configurada. Tudo fica salvo neste PC.']
+    'sem-nuvem': ['var(--mudo)', () => 'Esta versão ainda não tem a nuvem configurada. Tudo fica salvo neste PC.'],
+    'grande-demais': ['var(--vermelho)', () => 'Seus dados passaram do limite da nuvem (2 MB) e pararam de subir. Tudo continua salvo neste PC.'],
+    'chave-errada': ['var(--vermelho)', () => 'A chave em nuvem.json é a secreta (service_role). Troque pela pública (anon/publishable); até lá a nuvem fica desligada e tudo fica salvo neste PC.']
   };
-  function conta() {
+  // linha de status da sincronização (trocada no lugar a cada envio, sem refazer a tela)
+  function linhaSync() {
     const c = App.conta || {}, s = c.sync || {};
-    const [cor, texto] = STATUS_SYNC[s.status] || STATUS_SYNC.desconectado;
-    if (c.semConta) return secao('Conta', '', `<div class="cfg-sync">${UI.ponto(STATUS_SYNC[s.status] ? STATUS_SYNC[s.status][0] : 'var(--mudo)')}<span>${esc((STATUS_SYNC[s.status] || STATUS_SYNC['sem-nuvem'])[1](s))}</span></div>`);
+    const [cor, texto] = STATUS_SYNC[s.status] || STATUS_SYNC[c.semConta ? 'sem-nuvem' : 'desconectado'];
+    if (c.semConta) return `<div class="cfg-sync" data-sync-linha>${UI.ponto(cor)}<span>${esc(texto(s))}</span></div>`;
+    return `<div class="cfg-sync" data-sync-linha${s.erro ? ` title="${esc(s.erro)}"` : ''}>${UI.ponto(cor)}<span>${esc(texto(s))}${s.pendente && s.status !== 'enviando' ? ' · há mudanças esperando envio' : ''}</span></div>`;
+  }
+  function conta() {
+    const c = App.conta || {};
+    if (c.semConta) return secao('Conta', '', linhaSync());
+    if (!c.logado) return secao('Conta', '', `${linhaSync()}<div class="cfg-botoes"><button class="btn btn-sec" data-entrar-conta>Entrar</button></div>`);
     const quem = c.nome || c.email || 'Sua conta';
     return secao('Conta', 'Seus clientes e pedidos ficam guardados na sua conta. Pra usar em outro computador, é só entrar com o mesmo e-mail.',
       `<div class="cfg-conta">
         ${UI.avatar({ tam: 40, nome: quem })}
         <div class="cfg-conta-txt"><div class="forte truncar">${esc(quem)}</div>${c.nome && c.email ? `<div class="pequeno mudo truncar">${esc(c.email)}</div>` : ''}</div>
       </div>
-      <div class="cfg-sync"${s.erro ? ` title="${esc(s.erro)}"` : ''}>${UI.ponto(cor)}<span>${esc(texto(s))}${s.pendente && s.status !== 'enviando' ? ' · há mudanças esperando envio' : ''}</span></div>
+      ${linhaSync()}
       <div class="cfg-botoes">
         <button class="btn btn-sec" data-sincronizar>${ic('atualizar', 16)}<span data-rot>Sincronizar agora</span></button>
         <button class="btn btn-sec" data-sair-conta>${ic('sair', 16)}Sair da conta</button>
@@ -203,7 +212,7 @@
 
   function dados() {
     return secao('Dados', '',
-      `<p class="cfg-texto">Clientes, pedidos e configurações ficam neste computador e na sua conta. As <b>imagens</b> (fotos, thumbs e referências) ficam só neste computador. O app também guarda sozinho uma cópia de segurança por dia (as últimas 14).</p>
+      `<p class="cfg-texto">Clientes, pedidos e configurações ficam ${App.conta && App.conta.logado && !App.conta.semConta ? 'neste computador e na sua conta' : 'neste computador'}. As <b>imagens</b> (fotos, thumbs e referências) ficam só neste computador. O app também guarda sozinho uma cópia de segurança por dia (as últimas 14).</p>
       <div class="cfg-botoes">
         <button class="btn btn-sec" data-abrir-pasta>${ic('pasta', 16)}Abrir pasta dos dados</button>
         <button class="btn btn-sec" data-exportar>${ic('upload', 16)}Exportar backup</button>
@@ -212,8 +221,8 @@
   }
 
   // ---------- Atualizações ----------
-  function atualizacoes() {
-    const a = App.atualizacao || {};
+  const updateOcupado = (a) => ['dev', 'procurando', 'baixando'].includes(a.fase);
+  function linhaUpdate(a) {
     const linhas = {
       dev: 'Rodando direto do código: a atualização automática só funciona no app instalado.',
       parado: 'Procura versão nova sozinho ao abrir e a cada 6 horas.',
@@ -223,12 +232,15 @@
       atualizado: 'Você está na versão mais nova.',
       erro: 'Não deu pra procurar agora. O app tenta de novo sozinho mais tarde.'
     };
-    const ocupado = ['dev', 'procurando', 'baixando'].includes(a.fase);
+    return `${a.versaoAtual ? `<b>Versão ${esc(a.versaoAtual)}</b> · ` : ''}${esc(linhas[a.fase] || '')}`;
+  }
+  function atualizacoes() {
+    const a = App.atualizacao || {};
     return secao('Atualizações', '',
-      `<p class="cfg-texto">${a.versaoAtual ? `<b>Versão ${esc(a.versaoAtual)}</b> · ` : ''}${esc(linhas[a.fase] || '')}</p>
+      `<p class="cfg-texto" data-update-linha>${linhaUpdate(a)}</p>
       <div class="cfg-botoes">${a.fase === 'pronto'
         ? `<button class="btn btn-primario" data-instalar-update>${ic('atualizar', 16)}Reiniciar e atualizar</button>`
-        : `<button class="btn btn-sec" data-checar-update${ocupado ? ' disabled' : ''}>${ic('atualizar', 16)}Procurar agora</button>`}</div>`, 'cfg-ultima');
+        : `<button class="btn btn-sec" data-checar-update${updateOcupado(a) ? ' disabled' : ''}>${ic('atualizar', 16)}Procurar agora</button>`}</div>`, 'cfg-ultima');
   }
 
   // ---------- Discord: status e ações ----------
@@ -285,6 +297,16 @@
     render() {
       const cfg = App.estado.config;
       return `<div class="cfg">${aparencia(cfg)}${conta()}${trabalho(cfg)}${discord()}${gamepass(cfg)}${dados()}${atualizacoes()}</div>`;
+    },
+    // envio pra nuvem e download de versão: troca só as linhas de status (o resto da tela fica como está)
+    parcial() {
+      const s = document.querySelector('#area [data-sync-linha]');
+      if (s) s.outerHTML = linhaSync();
+      const a = App.atualizacao || {};
+      const u = document.querySelector('#area [data-update-linha]');
+      if (u) u.innerHTML = linhaUpdate(a);
+      const b = document.querySelector('#area [data-checar-update]');
+      if (b) b.disabled = updateOcupado(a);
     },
     montar(area) {
       // Aparência
@@ -367,6 +389,8 @@
         } catch { UI.toast('Não deu pra sincronizar agora.', 'erro'); }
         App.redesenhar();
       });
+      const entrarConta = area.querySelector('[data-entrar-conta]');
+      if (entrarConta) entrarConta.addEventListener('click', () => Entrada.mostrar());
       const sairConta = area.querySelector('[data-sair-conta]');
       if (sairConta) sairConta.addEventListener('click', async () => {
         const ok = await UI.confirmar({ titulo: 'Sair da conta?', texto: 'Seus dados continuam guardados na conta. Pra voltar, é só entrar de novo com o mesmo e-mail.', ok: 'Sair da conta' });

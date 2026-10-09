@@ -8,11 +8,13 @@ const path = require('path');
 
 const raiz = path.resolve(__dirname, '..');
 const dados = fs.mkdtempSync(path.join(os.tmpdir(), 'comissoes-teste-'));
-// dados no formato ANTIGO (etapas, pagamento parcial, rodadas) pra testar a migração
+// dados no formato ANTIGO (etapas, pagamento parcial, rodadas) pra testar a migração,
+// mais campos de uma versão "mais nova" (têm que sobreviver) e um avatar de rede (tem que ser ignorado)
 fs.writeFileSync(path.join(dados, 'comissoes-dados.json'), JSON.stringify({
-  config: {}, clientes: [{ id: 'cli-velho', nome: 'Velho', conversa: { estado: 'falta', desde: new Date().toISOString() } }],
+  config: {}, colecaoNova: [{ id: 'x' }],
+  clientes: [{ id: 'cli-velho', nome: 'Velho', instagram: '@velho', avatar: 'file://127.0.0.1/C$/nao-existe.png', conversa: { estado: 'falta', desde: new Date().toISOString() } }],
   pedidos: [
-    { id: 'ped-velho-1', clienteId: 'cli-velho', titulo: 'Antigo pago', qtd: 2, etapa: 'pago', valor: 1000, recebido: 1000, ajustes: [{ texto: 'mais escuro' }] },
+    { id: 'ped-velho-1', clienteId: 'cli-velho', titulo: 'Antigo pago', qtd: 2, etapa: 'pago', valor: 1000, recebido: 1000, ajustes: [{ texto: 'mais escuro' }], desconto: 5 },
     { id: 'ped-velho-2', clienteId: 'cli-velho', titulo: 'Antigo metade', qtd: 1, etapa: 'comecado', valor: 500, recebido: 250 },
     { id: 'ped-velho-3', clienteId: 'cli-velho', titulo: 'Antigo aprovado', qtd: 1, etapa: 'aprovado', valor: 300, recebido: 0 }
   ]
@@ -24,7 +26,7 @@ const exe = instalado || path.join(raiz, 'node_modules', 'electron', 'dist', 'el
 const espera = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
-  const proc = spawn(exe, [...(instalado ? [] : ['.']), `--remote-debugging-port=${porta}`, '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'], { cwd: instalado ? path.dirname(instalado) : raiz, env: { ...process.env, COMISSOES_DADOS: dados }, stdio: 'ignore' });
+  const proc = spawn(exe, [...(instalado ? [] : ['.']), `--remote-debugging-port=${porta}`, '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'], { cwd: instalado ? path.dirname(instalado) : raiz, env: { ...process.env, COMISSOES_DADOS: dados, COMISSOES_NUVEM: 'off' }, stdio: 'ignore' });
   let ws, id = 0; const pend = new Map();
   const resultados = [];
   const ok = (nome, cond, extra = '') => { resultados.push({ nome, ok: !!cond, extra }); console.log((cond ? 'PASSOU ' : 'FALHOU ') + nome + (extra ? ' — ' + extra : '')); };
@@ -53,12 +55,20 @@ async function main() {
     ok('migração: aprovado sem pagar → feito e não pago', m3 && m3.feito === true && m3.pago === false);
     ok('migração: campos de etapa somem', mig.every(p => !p.temEtapa));
     ok('tela inicial renderizou', await ev("return document.querySelector('#lateral').children.length > 3"));
+    // nuvem desligada no teste (nunca toca a nuvem de verdade)
+    ok('teste roda só local (COMISSOES_NUVEM=off)', (await ev('return App.conta.semConta && App.conta.sync.status')) === 'sem-nuvem');
+    const novos = await ev("const c = App.estado.clientes.find(c => c.id === 'cli-velho'), p = App.estado.pedidos.find(p => p.id === 'ped-velho-1'); return { insta: c.instagram, avatar: c.avatar, desconto: p.desconto, colecao: Array.isArray(App.estado.colecaoNova) }");
+    ok('campos de versão mais nova não somem', novos.insta === '@velho' && novos.desconto === 5 && novos.colecao);
+    ok('avatar de rede (file://servidor) é ignorado', novos.avatar === '');
+    ok('ponte dados.sujo e conta.adotar existem', await ev("return typeof window.api.dados.sujo === 'function' && typeof window.api.conta.adotar === 'function'"));
     // dados: salvar e ler de volta
     await ev("App.acoes.novoCliente({ nome: 'Teste', faltaResponder: true }); return true");
     await espera(500);
     const lido = await ev('const d = await window.api.dados.ler(); return d.clientes.length');
     ok('dados salvos no disco e lidos de volta', lido === 2, 'clientes=' + lido);
     ok('arquivo JSON criado', fs.existsSync(path.join(dados, 'comissoes-dados.json')));
+    const disco = JSON.parse(fs.readFileSync(path.join(dados, 'comissoes-dados.json'), 'utf8'));
+    ok('o arquivo salvo mantém os campos novos', Array.isArray(disco.colecaoNova) && disco.clientes.some(c => c.instagram === '@velho') && !disco.pedidos.some(p => 'etapa' in p));
     // Discord sem token
     const semToken = await ev("return await window.api.discord.usuario('284719306512384000')");
     ok('Discord sem token avisa', !semToken.ok && semToken.codigo === 'sem-token', semToken.erro);
@@ -77,6 +87,7 @@ async function main() {
     if (rb.ok && rb.dados.avatar) {
       const carregou = await ev(`return await new Promise(r => { const i = new Image(); i.onload = () => r(i.naturalWidth > 0); i.onerror = () => r(false); i.src = ${JSON.stringify(rb.dados.avatar)}; })`);
       ok('avatar do Roblox salvo localmente e carregável', carregou);
+      ok('e passa no filtro de imagem local (não some ao recarregar)', /^file:\/\/\/[A-Za-z]:\//.test(rb.dados.avatar), rb.dados.avatar.slice(0, 40));
     }
     // arquivos: caminho fora da pasta é recusado
     const fora = await ev("return await window.api.arquivos.remover('C:\\\\Windows\\\\win.ini')");
@@ -93,6 +104,35 @@ async function main() {
       const erro = await ev(`App.ir('${t}'); await new Promise(r=>setTimeout(r,150)); return document.querySelector('#area .vazio h3')?.textContent === 'Algo deu errado nesta tela'`);
       ok('tela ' + t + ' abre sem erro', !erro);
     }
+    // config (sem nuvem): Dados não fala em conta; status de envio/download troca no lugar, sem refazer a tela
+    ok('Dados sem nuvem não fala em conta', (await ev("return document.querySelector('#area').textContent")).includes('ficam neste computador. As imagens'));
+    const parcial = await ev(`const sel = document.querySelector('#cfg-moeda'), sync = document.querySelector('#area [data-sync-linha]');
+      App.conta = { ...App.conta, sync: { ...App.conta.sync, status: 'offline' } }; App.atualizacao = { ...App.atualizacao, fase: 'baixando', versao: '9.9.9', pct: 42 };
+      App.telas.config.parcial();
+      const r = { selVivo: sel.isConnected, syncTrocou: !sync.isConnected && /Sem internet/.test(document.querySelector('#area [data-sync-linha]').textContent), pct: document.querySelector('#area [data-update-linha]').textContent.includes('42%') };
+      App.conta = { ...App.conta, sync: { ...App.conta.sync, status: 'sem-nuvem' } }; App.atualizacao = { ...App.atualizacao, fase: 'dev' }; App.redesenhar(); return r;`);
+    ok('status da config troca no lugar (select continua o mesmo)', parcial.selVivo && parcial.syncTrocou && parcial.pct, JSON.stringify(parcial));
+    // "Continuar sem entrar": a config não finge conta conectada e tem como entrar
+    const local = await ev(`const antes = App.conta;
+      App.conta = { logado: false, email: '', nome: '', adotar: null, podeUsarLocal: true, sync: { status: 'desconectado', pendente: false, ultimo: '', erro: '' } };
+      App.ir('config'); await new Promise(r => setTimeout(r, 100));
+      const a = document.querySelector('#area'), r = { entrar: !!a.querySelector('[data-entrar-conta]'), outros: !!a.querySelector('[data-sincronizar], [data-sair-conta]'), naConta: a.textContent.includes('e na sua conta') };
+      a.querySelector('[data-entrar-conta]')?.click(); r.abriu = Entrada.aberta();
+      App.conta = antes; Entrada.esconder(); return r;`);
+    ok('sem entrar: config mostra "Entrar" (sem Sincronizar/Sair) e abre a tela de entrada', local.entrar && !local.outros && !local.naConta && local.abriu, JSON.stringify(local));
+    // tela de entrada: Ctrl+K não abre busca escondida; trocar de aba mantém o e-mail; toasts ficam por cima
+    const ent = await ev(`Entrada.mostrar(); await new Promise(r => setTimeout(r, 60));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+      const busca = UI.temModal();
+      document.querySelector('.entrada [data-email]').value = 'amigo@gmail.com';
+      document.querySelector('.entrada [data-aba=criar]').click();
+      const email = document.querySelector('.entrada [data-email]').value;
+      UI.toast('teste', 'ok'); await new Promise(r => setTimeout(r, 50));
+      const t = document.querySelector('#toasts'), zt = +getComputedStyle(t).zIndex, ze = +getComputedStyle(document.querySelector('.entrada')).zIndex;
+      Entrada.esconder(); return { busca, email, toastPorCima: zt > ze };`);
+    ok('Ctrl+K não abre a busca atrás da tela de entrada', ent.busca === false);
+    ok('trocar Entrar/Criar conta mantém o e-mail', ent.email === 'amigo@gmail.com', ent.email);
+    ok('toasts aparecem por cima da tela de entrada', ent.toastPorCima);
   } catch (e) {
     ok('execução do teste', false, e.message);
   } finally {

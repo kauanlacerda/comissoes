@@ -16,9 +16,12 @@ Desinstalar pelo Windows **não apaga** seus dados.
 ## Conta
 
 Na primeira vez, o app pede pra **Entrar** ou **Criar conta** (e-mail e senha).
+Numa versão sem a nuvem configurada não tem login: tudo fica só no computador (**Configurações → Conta** avisa).
 - Seus clientes e pedidos ficam guardados na sua conta. Em outro computador, é só entrar com o mesmo e-mail.
+- Se o computador já tinha clientes e pedidos, no primeiro login o app pergunta se guarda eles na sua conta ou começa vazio.
 - Depois de entrar, o app funciona mesmo **sem internet**. O que mudar sobe sozinho quando a conexão voltar.
 - Cada conta só enxerga os próprios dados.
+- **Sair da conta** não apaga os dados deste computador: quem usa o mesmo usuário do Windows ainda acha eles na pasta do app.
 - As **imagens** (fotos, thumbs e referências) ficam só no computador onde foram colocadas.
 
 ## Atualizações
@@ -91,16 +94,28 @@ Em **Configurações → Dados** dá pra abrir a pasta, exportar e importar um b
 
 ## Para o dono do app: nuvem (Supabase) e versões
 
-- A nuvem é um projeto Supabase. O endereço e a chave pública ("anon") ficam em `nuvem.json`.
+- A nuvem é um projeto Supabase. O endereço e a chave **pública** ("anon" ou `sb_publishable_…`) ficam em `nuvem.json`.
   Sem eles o app funciona só no computador, sem login.
+- **Nunca** coloque a chave secreta ("service_role" ou `sb_secret_…`) em `nuvem.json`: ela passa por cima da segurança
+  e iria junto no instalador. O app recusa essa chave e fica só no computador até ela ser trocada.
 - A tabela é criada uma vez, colando `docs/supabase-comissoes.sql` no **SQL Editor** do Supabase e clicando em **Run**.
-- Publicar uma versão: aumentar `version` no `package.json`, commit, criar a tag `vX.Y.Z` e enviar pro GitHub.
-  O GitHub Actions gera o instalador e publica em Releases; os apps instalados se atualizam sozinhos.
+- Também uma vez, no painel: **Authentication → Sign In / Providers → Email** e desligue **Confirm email**.
+  O e-mail grátis do Supabase só chega pra quem é do time do projeto (no máximo 2 por hora), então com ele ligado
+  os amigos não conseguem criar conta. Se quiser confirmação, configure um SMTP próprio e o Site URL.
+- No primeiro login num PC que já tinha dados, o app pergunta antes de guardar esses dados na conta
+  (**Guardar na minha conta** ou **Começar vazio**, que deixa os antigos numa cópia de segurança).
+- Sair da conta não esconde os dados de quem usa o mesmo usuário do Windows: eles continuam em `%APPDATA%\Comissões\`.
+  Pra separar de verdade, cada pessoa precisa do próprio usuário do Windows.
+- Publicar uma versão: aumentar `version` no `package.json`, commit, `git tag vX.Y.Z` e
+  `git push origin master && git push origin vX.Y.Z` (um `git push` sozinho não envia a tag).
+  O GitHub Actions confere se a tag bate com a versão do `package.json`, gera o instalador e publica em Releases;
+  os apps instalados se atualizam sozinhos.
 
 ## Para desenvolver
 
 - `npm start`: abre o app.
-- `node tools/testar-app.js`: teste de integração do app real, com dados temporários.
+- `node tools/testar-app.js`: teste de integração do app real, com dados temporários e a nuvem desligada
+  (`COMISSOES_NUVEM=off`, que também serve pra abrir o app só local).
 - `node tools/testar-conta.js`: testa conta e sincronização contra uma nuvem falsa (sem internet).
 - `node_modules\.bin\electron tools\capturar.js <pasta> ambos`: fotos de todas as telas nos dois visuais, com dados de exemplo.
 - `node tools/servir.js 5180`, depois abrir `http://localhost:5180/renderer/index.html?semente=1`: interface no navegador, em modo simulado.

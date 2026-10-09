@@ -58,19 +58,24 @@
     cfg.tema = cfg.tema === 'of' ? 'of' : 'cube';
     cfg.lateralRecolhida = !!cfg.lateralRecolhida;
     ['nome', 'linkGamepass', 'msgGamepass'].forEach(k => { if (typeof cfg[k] !== 'string') cfg[k] = CONFIG_PADRAO[k]; });
+    // imagens só do disco deste PC (file:///C:/…); file://servidor/… faria o Windows abrir conexão de rede
+    const urlLocal = (u) => (typeof u === 'string' && /^file:\/\/\/[A-Za-z]:\//.test(u) ? u : '');
+    // campos que este app não conhece ficam (podem ser de uma versão mais nova, em outro PC)
     return {
+      ...e,
       config: cfg,
       clientes: (Array.isArray(e.clientes) ? e.clientes : []).filter(ehObjeto).map(c => ({
+        ...c,
         id: c.id || uid(), criadoEm: c.criadoEm || agoraISO(), nome: c.nome || c.globalName || c.username || 'Cliente',
         tipo: c.tipo === 'grupo' ? 'grupo' : 'pessoa', canalId: /^\d{17,20}$/.test(String(c.canalId || '')) ? String(c.canalId) : '',
-        discordId: c.discordId || '', username: c.username || '', globalName: c.globalName || '', avatar: c.avatar || '',
+        discordId: c.discordId || '', username: c.username || '', globalName: c.globalName || '', avatar: urlLocal(c.avatar),
         corPerfil: c.corPerfil || '', contaCriada: c.contaCriada || '', atualizadoEm: c.atualizadoEm || '',
-        roblox: c.roblox || null, conversa: c.conversa && c.conversa.estado ? c.conversa : { estado: 'respondido', desde: agoraISO() },
+        roblox: ehObjeto(c.roblox) ? { ...c.roblox, avatar: urlLocal(c.roblox.avatar) } : null, conversa: c.conversa && c.conversa.estado ? c.conversa : { estado: 'respondido', desde: agoraISO() },
         notas: c.notas || '', pagaVia: c.pagaVia || ''
       })),
       pedidos: (Array.isArray(e.pedidos) ? e.pedidos : []).filter(ehObjeto).map(p => {
         const qtd = Math.max(1, Math.min(12, parseInt(p.qtd, 10) || 1));
-        const entregas = Array.from({ length: qtd }, (_, i) => (p.entregas && p.entregas[i]) || null);
+        const entregas = Array.from({ length: qtd }, (_, i) => { const x = Array.isArray(p.entregas) ? p.entregas[i] : null; return ehObjeto(x) && urlLocal(x.url) ? x : null; });
         const valor = Math.max(0, +p.valor || 0);
         // dados da versão com etapas: entregue/aprovado/pago = feito; pago = etapa 'pago' ou recebeu tudo
         const feito = typeof p.feito === 'boolean' ? p.feito : ['entregue', 'aprovado', 'pago'].includes(p.etapa);
@@ -80,12 +85,16 @@
         if (Array.isArray(p.ajustes) && p.ajustes.length && !notas.includes('Ajustes pedidos:')) {
           notas = (notas ? notas + '\n\n' : '') + 'Ajustes pedidos:\n' + p.ajustes.map(a => '- ' + String((a && a.texto) || '').trim()).filter(l => l !== '- ').join('\n');
         }
-        return {
+        const o = {
+          ...p,
           id: p.id || uid(), criadoEm: p.criadoEm || agoraISO(), clienteId: p.clienteId || '', titulo: p.titulo || 'Pedido', jogo: p.jogo || '',
           qtd, valor, moeda: App.MOEDAS.includes(p.moeda) ? p.moeda : 'Robux',
           feito, feitoEm: p.feitoEm || (feito ? (p.concluidoEm || '') : ''), pago, pagoEm: p.pagoEm || '',
           prazo: p.prazo || '', entregas, notas
         };
+        // campos da versão com etapas saem (já viraram feito/pago/notas)
+        ['etapa', 'etapaEm', 'recebido', 'rodada', 'ajustes', 'concluidoEm'].forEach(k => delete o[k]);
+        return o;
       })
     };
   }
@@ -93,6 +102,7 @@
   // ---------- Persistência ----------
   let timerSalvar = null;
   const salvar = () => {
+    try { if (App.api.dados.sujo) App.api.dados.sujo(); } catch {} // o processo principal fica sabendo na hora
     clearTimeout(timerSalvar);
     timerSalvar = setTimeout(() => {
       Promise.resolve(App.api.dados.salvar(App.estado)).catch(() => UI.toast('Não deu pra salvar os dados.', 'erro'));
