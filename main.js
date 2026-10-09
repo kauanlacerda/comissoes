@@ -45,7 +45,12 @@ function criarJanela() {
   });
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.once('ready-to-show', () => { win.show(); win.focus(); });
+  // mostra no primeiro sinal de vida; o 'ready-to-show' nem sempre dispara com titleBarOverlay no Windows
+  let mostrada = false;
+  const mostrar = () => { if (mostrada || !win || win.isDestroyed()) return; mostrada = true; win.show(); win.focus(); };
+  win.once('ready-to-show', mostrar);
+  win.webContents.once('did-finish-load', () => setTimeout(mostrar, 60));
+  setTimeout(mostrar, 4000);
   // nada de abrir janelas ou navegar pra fora do app
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
