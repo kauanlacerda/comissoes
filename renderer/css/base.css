@@ -116,10 +116,6 @@ html[data-tema="of"] .lateral-secao { color: var(--apagado); font-weight: 500; p
 .conversa .estado { font-size: 12px; font-weight: var(--peso-normal); }
 .espacador { flex: 1; min-height: 12px; }
 
-.ocupado { display: flex; align-items: center; gap: 10px; padding: 12px; margin: 8px 0; border-radius: 16px; background: var(--interno); }
-html[data-tema="of"] .ocupado { background: var(--card); border-radius: 6px; padding: 10px 12px; }
-.anel-vagas { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 2px solid #3a4454; display: flex; align-items: center; justify-content: center; font-weight: var(--peso-forte); font-size: 13px; }
-html[data-tema="of"] .anel-vagas { border-color: #3f3f46; }
 
 .principal { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 html[data-tema="of"] .principal { gap: 12px; }
@@ -394,3 +390,40 @@ html[data-tema="of"] .opcao-tema { background: none; border-width: 1px; }
 .miniatura.of { background: #000; gap: 0; padding: 6px; border-radius: 4px; }
 .miniatura.of i { display: block; background: #141415; border-radius: 3px; }
 .miniatura.of i + i { border-left: 1px solid #27272a; border-radius: 0; }
+
+/* ---------- Seletor segmentado (genérico) ---------- */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: var(--raio-ctrl); background: var(--interno); }
+html[data-tema="of"] .seg { background: none; border: 1px solid var(--borda); }
+.seg-op { height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: calc(var(--raio-ctrl) - 3px); background: none; color: var(--mudo); font-size: 13px; font-weight: var(--peso-forte); }
+html[data-tema="of"] .seg-op { height: 30px; border-radius: 4px; font-weight: 500; }
+.seg-op:hover { color: var(--suave); }
+.seg-op[aria-pressed="true"] { background: var(--ativo); color: var(--texto); }
+html[data-tema="of"] .seg-op[aria-pressed="true"] { background: var(--interno); }
+
+/* ---------- Tela de entrada (login) ---------- */
+body.sem-conta .app { visibility: hidden; }
+.entrada { position: fixed; inset: 40px 0 0 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--fundo); overflow-y: auto; }
+.entrada-caixa { width: min(420px, 100%); display: flex; flex-direction: column; gap: 18px; padding: 32px 30px 26px; border-radius: 22px; background: var(--card); border: 1px solid var(--borda); box-shadow: var(--sombra-modal); }
+html[data-tema="of"] .entrada-caixa { border-radius: 10px; padding: 28px 26px 22px; }
+.entrada-marca { display: flex; align-items: center; gap: 12px; }
+.entrada-marca .logo { color: var(--azul-texto); flex: none; }
+.entrada-marca h1 { margin: 0; font-size: 24px; font-weight: var(--peso-titulo); letter-spacing: -.02em; }
+html[data-tema="of"] .entrada-marca h1 { font-size: 20px; }
+.entrada-sub { margin: -6px 0 0; font-size: 14px; color: var(--mudo); line-height: 1.5; }
+.entrada-form { display: flex; flex-direction: column; gap: 14px; }
+.entrada-form .btn { margin-top: 2px; }
+.entrada-aviso { display: none; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; }
+.entrada-aviso.erro, .entrada-aviso.ok { display: flex; }
+.entrada-aviso.erro { color: var(--vermelho-texto); }
+.entrada-aviso.ok { color: var(--verde); }
+.entrada-aviso .ic { flex: none; margin-top: 1px; }
+.entrada-nota { margin: 0; display: flex; gap: 8px; font-size: 12px; line-height: 1.5; color: var(--mudo); }
+.entrada-nota .ic { flex: none; margin-top: 2px; }
+
+/* ---------- Aviso de atualização pronta ---------- */
+.aviso-update { position: fixed; right: 20px; bottom: 20px; z-index: 55; display: flex; align-items: center; gap: 14px; padding: 12px 12px 12px 16px; border-radius: var(--raio-bloco); background: var(--card); border: 1px solid var(--borda); box-shadow: var(--sombra-modal); animation: aparecer .15s ease-out; }
+html[data-tema="cube"] .aviso-update { background: #1a212b; }
+.aviso-update .txt { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.aviso-update .txt b { font-weight: var(--peso-forte); }
+.aviso-update .txt span { color: var(--mudo); font-size: 12px; }
+body.com-aviso-update .toasts { bottom: 96px; }

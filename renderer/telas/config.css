@@ -75,3 +75,9 @@ html[data-tema="of"] .cfg-tema-desc { font-weight: 400; }
 .cfg-texto { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: var(--suave); }
 .cfg-texto b { color: var(--texto); font-weight: var(--peso-medio); }
 .cfg-botoes { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- Conta ---------- */
+.cfg-conta { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cfg-conta-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cfg-sync { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; color: var(--suave); }
+.cfg-sync .ponto { margin-top: 6px; }

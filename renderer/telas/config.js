@@ -18,7 +18,7 @@
   document.addEventListener('pointercancel', () => { apertado = false; }, true);
 
   // Salva já (sem redesenhar) e redesenha depois, devolvendo o foco ao campo onde a pessoa
-  // estava (lateral e cabeçalho mostram vagas, nome e alertas de prazo).
+  // estava (lateral e cabeçalho mostram nome e alertas de prazo).
   function salvarComRender(patch) {
     App.mudar(e => { Object.assign(e.config, patch); }, { render: false });
     if (redesenhoPendente) return;
@@ -85,18 +85,13 @@
   }
 
   function trabalho(cfg) {
-    return secao('Você e o trabalho', 'Usado na saudação, nas vagas da lateral e nos avisos de prazo.',
+    return secao('Você e o trabalho', 'Usado na saudação e nos avisos de prazo.',
       `<div class="cfg-campos">
         <div class="campo">
           <label for="cfg-nome">Seu nome</label>
           <input class="input" id="cfg-nome" type="text" maxlength="40" autocomplete="off" data-campo="nome" data-foco="nome" value="${esc(cfg.nome)}" placeholder="Como o app deve te chamar">
         </div>
         <div class="linha-campos">
-          <div class="campo">
-            <label for="cfg-vagas">Vagas simultâneas</label>
-            <input class="input" id="cfg-vagas" type="number" min="1" max="10" step="1" data-campo="vagas" data-foco="vagas" value="${esc(cfg.vagas)}">
-            <div class="ajuda">Quantos pedidos a fazer você aguenta ao mesmo tempo (1&nbsp;a&nbsp;10).</div>
-          </div>
           <div class="campo">
             <label for="cfg-prazo">Avisar prazo com antecedência</label>
             <input class="input" id="cfg-prazo" type="number" min="0" max="14" step="1" data-campo="prazoAlertaDias" data-foco="prazo" value="${esc(cfg.prazoAlertaDias ?? 2)}">
@@ -179,14 +174,61 @@
       </div>`);
   }
 
+  // ---------- Conta ----------
+  const STATUS_SYNC = {
+    ok: ['var(--verde)', (s) => s.ultimo ? 'Sincronizado ' + App.fmtHa(s.ultimo) : 'Sincronizado'],
+    enviando: ['var(--azul-texto)', () => 'Enviando pra sua conta…'],
+    offline: ['var(--amarelo)', () => 'Sem internet. As mudanças ficam guardadas aqui e sobem quando a conexão voltar.'],
+    'sem-tabela': ['var(--vermelho)', () => 'A nuvem ainda não foi preparada (falta rodar o script no Supabase). Tudo continua salvo neste PC.'],
+    erro: ['var(--vermelho)', () => 'Não deu pra sincronizar agora. O app tenta de novo sozinho em 1 minuto.'],
+    desconectado: ['var(--mudo)', () => 'Desconectado'],
+    'sem-nuvem': ['var(--mudo)', () => 'Esta versão ainda não tem a nuvem configurada. Tudo fica salvo neste PC.']
+  };
+  function conta() {
+    const c = App.conta || {}, s = c.sync || {};
+    const [cor, texto] = STATUS_SYNC[s.status] || STATUS_SYNC.desconectado;
+    if (c.semConta) return secao('Conta', '', `<div class="cfg-sync">${UI.ponto(STATUS_SYNC[s.status] ? STATUS_SYNC[s.status][0] : 'var(--mudo)')}<span>${esc((STATUS_SYNC[s.status] || STATUS_SYNC['sem-nuvem'])[1](s))}</span></div>`);
+    const quem = c.nome || c.email || 'Sua conta';
+    return secao('Conta', 'Seus clientes e pedidos ficam guardados na sua conta. Pra usar em outro computador, é só entrar com o mesmo e-mail.',
+      `<div class="cfg-conta">
+        ${UI.avatar({ tam: 40, nome: quem })}
+        <div class="cfg-conta-txt"><div class="forte truncar">${esc(quem)}</div>${c.nome && c.email ? `<div class="pequeno mudo truncar">${esc(c.email)}</div>` : ''}</div>
+      </div>
+      <div class="cfg-sync"${s.erro ? ` title="${esc(s.erro)}"` : ''}>${UI.ponto(cor)}<span>${esc(texto(s))}${s.pendente && s.status !== 'enviando' ? ' · há mudanças esperando envio' : ''}</span></div>
+      <div class="cfg-botoes">
+        <button class="btn btn-sec" data-sincronizar>${ic('atualizar', 16)}<span data-rot>Sincronizar agora</span></button>
+        <button class="btn btn-sec" data-sair-conta>${ic('sair', 16)}Sair da conta</button>
+      </div>`);
+  }
+
   function dados() {
     return secao('Dados', '',
-      `<p class="cfg-texto">Clientes, pedidos e imagens ficam <b>só neste computador</b>, nada vai pra internet. O app guarda sozinho uma cópia de segurança por dia (as últimas 14).</p>
+      `<p class="cfg-texto">Clientes, pedidos e configurações ficam neste computador e na sua conta. As <b>imagens</b> (fotos, thumbs e referências) ficam só neste computador. O app também guarda sozinho uma cópia de segurança por dia (as últimas 14).</p>
       <div class="cfg-botoes">
         <button class="btn btn-sec" data-abrir-pasta>${ic('pasta', 16)}Abrir pasta dos dados</button>
         <button class="btn btn-sec" data-exportar>${ic('upload', 16)}Exportar backup</button>
         <button class="btn btn-sec" data-importar>${ic('caixa', 16)}Importar backup</button>
-      </div>`, 'cfg-ultima');
+      </div>`);
+  }
+
+  // ---------- Atualizações ----------
+  function atualizacoes() {
+    const a = App.atualizacao || {};
+    const linhas = {
+      dev: 'Rodando direto do código: a atualização automática só funciona no app instalado.',
+      parado: 'Procura versão nova sozinho ao abrir e a cada 6 horas.',
+      procurando: 'Procurando versão nova…',
+      baixando: `Baixando a versão ${a.versao || ''}… ${a.pct || 0}%`,
+      pronto: `Versão ${a.versao || ''} pronta pra instalar.`,
+      atualizado: 'Você está na versão mais nova.',
+      erro: 'Não deu pra procurar agora. O app tenta de novo sozinho mais tarde.'
+    };
+    const ocupado = ['dev', 'procurando', 'baixando'].includes(a.fase);
+    return secao('Atualizações', '',
+      `<p class="cfg-texto">${a.versaoAtual ? `<b>Versão ${esc(a.versaoAtual)}</b> · ` : ''}${esc(linhas[a.fase] || '')}</p>
+      <div class="cfg-botoes">${a.fase === 'pronto'
+        ? `<button class="btn btn-primario" data-instalar-update>${ic('atualizar', 16)}Reiniciar e atualizar</button>`
+        : `<button class="btn btn-sec" data-checar-update${ocupado ? ' disabled' : ''}>${ic('atualizar', 16)}Procurar agora</button>`}</div>`, 'cfg-ultima');
   }
 
   // ---------- Discord: status e ações ----------
@@ -239,10 +281,10 @@
   // ---------- Tela ----------
   App.telas.config = {
     cheia: false,
-    cabecalho() { return { titulo: 'Configurações', sub: 'Tudo fica salvo neste computador', botao: null }; },
+    cabecalho() { return { titulo: 'Configurações', sub: App.conta.logado && !App.conta.semConta ? 'Salvo neste computador e na sua conta' : 'Salvo neste computador', botao: null }; },
     render() {
       const cfg = App.estado.config;
-      return `<div class="cfg">${aparencia(cfg)}${trabalho(cfg)}${discord()}${gamepass(cfg)}${dados()}</div>`;
+      return `<div class="cfg">${aparencia(cfg)}${conta()}${trabalho(cfg)}${discord()}${gamepass(cfg)}${dados()}${atualizacoes()}</div>`;
     },
     montar(area) {
       // Aparência
@@ -256,7 +298,7 @@
       nome.addEventListener('input', () => App.mudar(e => { e.config.nome = nome.value; }, { render: false }));
       nome.addEventListener('change', () => salvarComRender({ nome: nome.value.trim() }));
 
-      const numeros = [['vagas', 1, 10, 3], ['prazoAlertaDias', 0, 14, 2]];
+      const numeros = [['prazoAlertaDias', 0, 14, 2]];
       for (const [campo, min, max, padrao] of numeros) {
         const inp = area.querySelector(`[data-campo="${campo}"]`);
         inp.addEventListener('input', () => {
@@ -309,6 +351,48 @@
           const v = inp.value.trim();
           if (v !== inp.value) { inp.value = v; App.mudar(e => { e.config[campo] = v; }, { render: false }); if (previa) previa.textContent = previaMsg(App.estado.config); }
         });
+      });
+
+      // Conta
+      const sinc = area.querySelector('[data-sincronizar]');
+      if (sinc) sinc.addEventListener('click', async () => {
+        sinc.disabled = true; sinc.querySelector('[data-rot]').textContent = 'Sincronizando…';
+        try {
+          App.conta = await App.api.conta.sincronizar();
+          const st = (App.conta.sync || {}).status;
+          if (st === 'ok') UI.toast('Tudo sincronizado.', 'ok');
+          else if (st === 'offline') UI.toast('Sem internet agora. As mudanças continuam guardadas aqui.', 'erro');
+          else if (st === 'sem-tabela') UI.toast('A nuvem ainda não foi preparada no Supabase.', 'erro');
+          else if (st === 'erro') UI.toast('Não deu pra sincronizar agora.', 'erro');
+        } catch { UI.toast('Não deu pra sincronizar agora.', 'erro'); }
+        App.redesenhar();
+      });
+      const sairConta = area.querySelector('[data-sair-conta]');
+      if (sairConta) sairConta.addEventListener('click', async () => {
+        const ok = await UI.confirmar({ titulo: 'Sair da conta?', texto: 'Seus dados continuam guardados na conta. Pra voltar, é só entrar de novo com o mesmo e-mail.', ok: 'Sair da conta' });
+        if (!ok) return;
+        let r = null;
+        try { r = await App.api.conta.sair(); } catch {}
+        App.conta = { ...App.conta, logado: false };
+        Entrada.mostrar(r && r.ficouPendente ? 'Você saiu. Algumas mudanças não subiram (sem internet); elas continuam neste PC e sobem quando você entrar de novo.' : 'Você saiu da conta.');
+      });
+
+      // Atualizações
+      const checar = area.querySelector('[data-checar-update]');
+      if (checar) checar.addEventListener('click', async () => {
+        checar.disabled = true;
+        try { App.atualizacao = await App.api.atualizacao.checar(); } catch {}
+        const f = App.atualizacao.fase;
+        if (f === 'atualizado') UI.toast('Você já está na versão mais nova.', 'ok');
+        else if (f === 'erro') UI.toast('Não deu pra procurar agora.', 'erro');
+        App.avisoUpdate && App.avisoUpdate();
+        App.redesenhar();
+      });
+      const instalar = area.querySelector('[data-instalar-update]');
+      if (instalar) instalar.addEventListener('click', async () => {
+        instalar.disabled = true;
+        const ok = await App.api.atualizacao.instalar();
+        if (!ok) { instalar.disabled = false; UI.toast('Não deu pra reiniciar agora. A versão nova entra quando você fechar o app.', 'erro'); }
       });
 
       // Dados

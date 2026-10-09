@@ -1,7 +1,7 @@
 {
   "name": "comissoes",
   "productName": "Comissões",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Painel pessoal de comissões e clientes (GFX Roblox)",
   "main": "main.js",
   "scripts": {
@@ -28,6 +28,8 @@
       "main.js",
       "preload.js",
       "store.js",
+      "conta.js",
+      "nuvem.json",
       "renderer/**/*",
       "assets/**/*"
     ],
@@ -56,6 +58,22 @@
       "uninstallerIcon": "assets/icon.ico",
       "installerHeaderIcon": "assets/icon.ico",
       "uninstallDisplayName": "Comissões"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "kauanlacerda",
+        "repo": "comissoes",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
+    "electron-updater": "^6.8.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kauanlacerda/comissoes.git"
   }
 }

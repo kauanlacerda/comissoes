@@ -37,7 +37,7 @@ app.whenReady().then(async () => {
       const vazio = t.endsWith('-vazio');
       const nome = vazio ? t.slice(0, -6) : t;
       const tela = TELA_BASE[nome] || nome;
-      await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), { query: { semente: '1', tela, tema } });
+      await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), { query: { semente: '1', tela, tema, ...(nome === 'entrada' ? { entrada: '1' } : {}) } });
       await espera(700);
       // "-vazio": zera os dados só na memória (não salva) pra ver os estados vazios
       if (vazio) { await win.webContents.executeJavaScript("App.estado.clientes=[];App.estado.pedidos=[];App.rota.id=null;App.redesenhar()"); await espera(300); }

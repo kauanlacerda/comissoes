@@ -16,7 +16,7 @@
   };
   App.MOEDAS = ['Robux', 'R$', 'US$'];
   const CONFIG_PADRAO = {
-    tema: 'cube', nome: '', vagas: 3, ocupado: false, prazoAlertaDias: 2, moedaPadrao: 'Robux',
+    tema: 'cube', nome: '', prazoAlertaDias: 2, moedaPadrao: 'Robux',
     linkGamepass: '', msgGamepass: 'Pode comprar o gamepass de {valor} quando puder: {link}', lateralRecolhida: false
   };
 
@@ -26,6 +26,18 @@
   const ouvintes = [];
   App.ouvir = (fn) => ouvintes.push(fn);
   const emitir = () => ouvintes.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+
+  // conta e atualização: o shell mantém isso em dia (eventos do processo principal)
+  App.conta = { logado: false, email: '', nome: '', sync: { status: 'desconectado', pendente: false, ultimo: '', erro: '' } };
+  App.atualizacao = { fase: 'dev', versao: '', versaoAtual: '', pct: 0, erro: '' };
+
+  // a nuvem trocou os dados (outro PC / outra conta): descarta gravação pendente e relê
+  App.recarregar = async () => {
+    clearTimeout(timerSalvar); timerSalvar = null;
+    await App.carregar();
+    emitir();
+  };
+  if (App.api.dados.onRecarregar) App.api.dados.onRecarregar(() => App.recarregar());
 
   App.carregar = async () => {
     const d = await App.api.dados.ler();
@@ -39,12 +51,12 @@
     const ehObjeto = (o) => o && typeof o === 'object' && !Array.isArray(o);
     // config vinda de arquivo/backup: força tipos e limites (nada de string virando HTML)
     const cfg = { ...CONFIG_PADRAO, ...(ehObjeto(e.config) ? e.config : {}) };
-    cfg.vagas = Math.max(1, Math.min(10, parseInt(cfg.vagas, 10) || 3));
+    delete cfg.vagas; delete cfg.ocupado; // sistema de vagas saiu
     const pz = parseInt(cfg.prazoAlertaDias, 10);
     cfg.prazoAlertaDias = Number.isFinite(pz) ? Math.max(0, Math.min(14, pz)) : 2;
     if (!App.MOEDAS.includes(cfg.moedaPadrao)) cfg.moedaPadrao = 'Robux';
     cfg.tema = cfg.tema === 'of' ? 'of' : 'cube';
-    cfg.ocupado = !!cfg.ocupado; cfg.lateralRecolhida = !!cfg.lateralRecolhida;
+    cfg.lateralRecolhida = !!cfg.lateralRecolhida;
     ['nome', 'linkGamepass', 'msgGamepass'].forEach(k => { if (typeof cfg[k] !== 'string') cfg[k] = CONFIG_PADRAO[k]; });
     return {
       config: cfg,
@@ -184,7 +196,6 @@
   App.falta = (p) => (p.pago ? 0 : Math.max(0, +p.valor || 0));
   App.faltaResponder = () => App.estado.clientes.filter(c => c.conversa.estado === 'falta').sort((a, b) => (a.conversa.desde || '').localeCompare(b.conversa.desde || ''));
   App.respondidos = () => App.estado.clientes.filter(c => c.conversa.estado !== 'falta').sort((a, b) => (b.conversa.desde || '').localeCompare(a.conversa.desde || ''));
-  App.vagas = () => ({ usadas: App.pedidosAFazer().length, total: App.estado.config.vagas || 3 });
   // a receber por moeda: tudo que tem valor e ainda não foi pago (feito ou não)
   App.aReceber = () => {
     const porMoeda = {}; let pedidos = 0;
@@ -301,7 +312,8 @@
       dados: {
         ler: async () => { try { return JSON.parse(localStorage.getItem(CHAVE)) || null; } catch { return null; } },
         salvar: async (s) => { try { localStorage.setItem(CHAVE, JSON.stringify(s)); } catch {} return true; },
-        abrirPasta: soNoApp, exportar: async () => { await soNoApp(); return { ok: false }; }, importar: async () => { await soNoApp(); return { ok: false }; }
+        abrirPasta: soNoApp, exportar: async () => { await soNoApp(); return { ok: false }; }, importar: async () => { await soNoApp(); return { ok: false }; },
+        onRecarregar: () => {}
       },
       discord: {
         usuario: async (id) => {
@@ -320,7 +332,21 @@
         listar: async () => [], abrirPasta: soNoApp, remover: async () => true, removerPedido: async () => true, caminhoDe: () => ''
       },
       sistema: { abrirExterno: async (u) => { window.open(u, '_blank'); return true; }, abrirDiscord: async () => { UI.toast('Abriria o Discord.'); return true; }, abrirCanal: async () => { UI.toast('Abriria a conversa no Discord.'); return true; }, copiar: async (t) => { try { await navigator.clipboard.writeText(t); } catch {} return true; } },
-      janela: { tema: () => {} }
+      janela: { tema: () => {} },
+      // no navegador já entra logado (?entrada=1 mostra a tela de login)
+      conta: (() => {
+        const deslogado = new URLSearchParams(location.search).has('entrada');
+        let st = { logado: !deslogado, email: deslogado ? '' : 'voce@exemplo.com', nome: deslogado ? '' : 'Você', sync: { status: deslogado ? 'desconectado' : 'ok', pendente: false, ultimo: new Date().toISOString(), erro: '' } };
+        return {
+          estado: async () => st,
+          entrar: async (email, senha) => { await espera(500); if (!/@/.test(email) || String(senha).length < 6) return { ok: false, erro: 'E-mail ou senha errados.' }; st = { ...st, logado: true, email, sync: { ...st.sync, status: 'ok' } }; return { ok: true, estado: st }; },
+          criar: async (email, senha) => { await espera(500); if (String(senha).length < 6) return { ok: false, erro: 'A senha precisa ter pelo menos 6 caracteres.' }; return { ok: true, precisaConfirmar: true }; },
+          sair: async () => { st = { ...st, logado: false }; return { ok: true }; },
+          sincronizar: async () => { await espera(400); st = { ...st, sync: { ...st.sync, ultimo: new Date().toISOString() } }; return st; },
+          onEstado: () => {}
+        };
+      })(),
+      atualizacao: { estado: async () => ({ fase: 'dev', versaoAtual: 'navegador' }), checar: async () => ({ fase: 'dev', versaoAtual: 'navegador' }), instalar: async () => false, onEstado: () => {} }
     };
   }
 

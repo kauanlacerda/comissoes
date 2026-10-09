@@ -10,7 +10,6 @@
     const recolhida = !!cfg.lateralRecolhida;
     el.classList.toggle('recolhida', recolhida);
     const tela = App.rota.tela;
-    const v = App.vagas();
     const falta = App.faltaResponder();
     // até 4 conversas (quem espera primeiro); a lista encolhe/rola em janelas baixas pra nunca esconder Configurações/Recolher
     const conversas = [...falta, ...App.respondidos()].slice(0, 4);
@@ -30,17 +29,11 @@
             <span class="estado ${f ? 'cor-vermelho' : 'cor-verde'}">${f ? 'Esperando ' + esc(App.fmtHa(c.conversa.desde)) : 'Respondido'}</span></span></button>`;
         }).join('')}</div>` : ''}
       <div class="espacador"></div>
-      <div class="ocupado so-aberta">
-        <span class="anel-vagas">${esc(v.usadas)}</span>
-        <span style="flex:1;min-width:0"><span class="forte" style="display:block;font-size:14px">${cfg.ocupado ? 'Ocupado' : 'Disponível'}</span><span class="pequeno mudo">${esc(v.usadas)} de ${esc(v.total)} vagas</span></span>
-        <button class="chave" data-ocupado aria-pressed="${cfg.ocupado ? 'true' : 'false'}" aria-label="Ocupado" title="Marcar como ocupado"></button>
-      </div>
       ${nav('config', 'config', 'Configurações')}
       <button class="nav-item" data-recolher title="${recolhida ? 'Expandir' : 'Recolher'}">${ic(recolhida ? 'expandir' : 'recolher', recolhida ? 20 : 18)}<span class="rot so-aberta">Recolher</span></button>`;
 
     el.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => App.ir(b.dataset.ir, null, b.dataset.grupo ? { grupo: b.dataset.grupo } : {}));
     el.querySelectorAll('[data-cliente]').forEach(b => b.onclick = () => App.ir('clientes', b.dataset.cliente));
-    $('[data-ocupado]', el).onclick = () => App.acoes.configurar({ ocupado: !cfg.ocupado });
     $('[data-recolher]', el).onclick = () => App.acoes.configurar({ lateralRecolhida: !recolhida });
   }
 
@@ -155,7 +148,45 @@
     const p = new URLSearchParams(location.search);
     if (p.get('tela')) App.rota = { tela: p.get('tela'), id: p.get('id') || null };
     if (p.get('tema')) { App.estado.config.tema = p.get('tema') === 'of' ? 'of' : 'cube'; document.documentElement.dataset.tema = App.estado.config.tema; }
+    try { App.conta = await App.api.conta.estado(); } catch {}
+    try { App.atualizacao = await App.api.atualizacao.estado(); } catch {}
     render();
+    if (!App.conta.logado) Entrada.mostrar();
+    App.api.conta.onEstado((st) => {
+      const estava = App.conta.logado;
+      App.conta = st;
+      if (estava && !st.logado) Entrada.mostrar('Você saiu da conta. Entre de novo quando quiser.');
+      else if (App.rota.tela === 'config' && !Entrada.aberta()) render();
+    });
+    App.api.atualizacao.onEstado((st) => {
+      App.atualizacao = st;
+      avisoUpdate();
+      if (App.rota.tela === 'config' && !Entrada.aberta()) render();
+    });
+    avisoUpdate();
     document.body.classList.add('pronto');
   });
+
+  // ---------- Aviso de versão nova pronta ----------
+  let avisoDispensado = '';
+  function avisoUpdate() {
+    const st = App.atualizacao || {};
+    let el = document.getElementById('aviso-update');
+    if (st.fase !== 'pronto' || avisoDispensado === st.versao) {
+      if (el) el.remove();
+      document.body.classList.remove('com-aviso-update');
+      return;
+    }
+    if (!el) { el = document.createElement('div'); el.id = 'aviso-update'; el.className = 'aviso-update'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.innerHTML = `${ic('atualizar', 18)}<div class="txt"><b>Versão ${esc(st.versao)} pronta</b><span>Reinicie pra usar agora, ou ela entra quando você fechar o app.</span></div>
+      <button class="btn btn-sec btn-peq" data-depois>Depois</button><button class="btn btn-primario btn-peq" data-reiniciar>Reiniciar</button>`;
+    el.querySelector('[data-depois]').onclick = () => { avisoDispensado = st.versao; avisoUpdate(); };
+    el.querySelector('[data-reiniciar]').onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = 'Reiniciando…';
+      const ok = await App.api.atualizacao.instalar();
+      if (!ok) { b.disabled = false; b.textContent = 'Reiniciar'; UI.toast('Não deu pra reiniciar agora. A versão nova entra quando você fechar o app.', 'erro'); }
+    };
+    document.body.classList.add('com-aviso-update');
+  }
+  App.avisoUpdate = avisoUpdate;
 })();

@@ -3,9 +3,14 @@ const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 const Store = require('./store');
+const { criarConta, nuvemConfigurada } = require('./conta');
 
 let win = null;
 let store = null;
+let conta = null;
+let contaPronta = Promise.resolve();
+let saindo = false;
+const avisar = (canal, dados) => { if (win && !win.isDestroyed()) win.webContents.send(canal, dados); };
 
 // testes automáticos apontam os dados pra uma pasta temporária (nunca mexem nos dados reais)
 if (process.env.COMISSOES_DADOS) app.setPath('userData', process.env.COMISSOES_DADOS);
@@ -192,7 +197,7 @@ function importarArquivo({ pedidoId, tipo, caminho, slot }) {
 // ---------- IPC ----------
 function registrarIpc() {
   ipcMain.handle('dados:ler', () => store.get());
-  ipcMain.handle('dados:salvar', (_e, estado) => store.set(estado));
+  ipcMain.handle('dados:salvar', (_e, estado) => { const ok = store.set(estado); if (ok && conta) conta.marcarMudanca(); return ok; });
   ipcMain.handle('dados:abrirPasta', () => shell.openPath(dirDados()));
   ipcMain.handle('dados:exportar', async () => {
     const r = await dialog.showSaveDialog(win, { title: 'Exportar backup', defaultPath: 'comissoes-backup.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
@@ -209,6 +214,7 @@ function registrarIpc() {
       if (!objetos(j.clientes) || !objetos(j.pedidos)) return { ok: false, erro: 'Esse arquivo não é um backup do app.' };
       store.snapshot('antes-de-importar');
       store.set(j);
+      if (conta) conta.marcarMudanca();
       return { ok: true, dados: store.get() };
     } catch { return { ok: false, erro: 'Não deu pra ler o arquivo.' }; }
   });
@@ -259,10 +265,60 @@ function registrarIpc() {
     catch { shell.openExternal(`https://discord.com/channels/@me/${id}`); return true; }
   });
   ipcMain.handle('sistema:copiar', (_e, texto) => { clipboard.writeText(String(texto || '')); return true; });
+  // ---------- conta ----------
+  ipcMain.handle('conta:estado', async () => { await Promise.race([contaPronta, new Promise(r => setTimeout(r, 6000))]); return conta.estado(); });
+  ipcMain.handle('conta:entrar', (_e, email, senha) => conta.entrar(email, senha));
+  ipcMain.handle('conta:criar', (_e, email, senha, nome) => conta.criar(email, senha, nome));
+  ipcMain.handle('conta:sair', () => conta.sair());
+  ipcMain.handle('conta:sincronizar', () => conta.sincronizar());
+
+  // ---------- atualização automática ----------
+  ipcMain.handle('atualizacao:estado', () => ({ ...atualizacao, versaoAtual: app.getVersion() }));
+  ipcMain.handle('atualizacao:checar', async () => {
+    if (!atualizador) return { ...atualizacao, versaoAtual: app.getVersion() };
+    try { await atualizador.checkForUpdates(); } catch (e) { atualizacao = { ...atualizacao, fase: 'erro', erro: String((e && e.message) || e) }; }
+    return { ...atualizacao, versaoAtual: app.getVersion() };
+  });
+  ipcMain.handle('atualizacao:instalar', async () => {
+    if (!atualizador || atualizacao.fase !== 'pronto') return false;
+    if (conta) await conta.antesDeFechar(4000);
+    saindo = true;
+    atualizador.quitAndInstall(false, true);
+    return true;
+  });
+
   ipcMain.on('janela:tema', (_e, tema) => {
     const c = CORES_BARRA[tema === 'of' ? 'of' : 'cube'];
     if (win && !win.isDestroyed()) { try { win.setTitleBarOverlay({ ...c, height: 40 }); win.setBackgroundColor(c.color); } catch {} }
   });
+}
+
+// ---------- Atualização automática (GitHub Releases) ----------
+let atualizador = null;
+let atualizacao = { fase: 'dev', versao: '', pct: 0, erro: '' };
+function iniciarAtualizacoes() {
+  if (!app.isPackaged) return; // rodando do código: nada a atualizar
+  try { ({ autoUpdater: atualizador } = require('electron-updater')); } catch { return; }
+  const mudar = (d) => { atualizacao = { ...atualizacao, ...d }; avisar('atualizacao:estado', { ...atualizacao, versaoAtual: app.getVersion() }); };
+  atualizacao.fase = 'parado';
+  atualizador.autoDownload = true;          // baixa sozinho em segundo plano
+  atualizador.autoInstallOnAppQuit = true;  // e instala quando o app fechar, se a pessoa não reiniciar antes
+  atualizador.on('checking-for-update', () => mudar({ fase: 'procurando', erro: '' }));
+  atualizador.on('update-available', (i) => mudar({ fase: 'baixando', versao: i.version, pct: 0 }));
+  atualizador.on('download-progress', (p) => mudar({ fase: 'baixando', pct: Math.round(p.percent || 0) }));
+  atualizador.on('update-downloaded', (i) => mudar({ fase: 'pronto', versao: i.version, pct: 100 }));
+  atualizador.on('update-not-available', () => mudar({ fase: 'atualizado' }));
+  atualizador.on('error', (e) => mudar({ fase: 'erro', erro: String((e && e.message) || e) }));
+  const checar = () => atualizador.checkForUpdates().catch(() => {});
+  setTimeout(checar, 8000);
+  setInterval(checar, 6 * 3600 * 1000);
+}
+
+// ---------- Conta fora do ar (falha ao iniciar o módulo): o app segue local ----------
+function contaIndisponivel(erro, status = 'erro') {
+  const estado = () => ({ logado: true, semConta: true, email: '', nome: '', sync: { status, pendente: false, ultimo: '', erro } });
+  const falha = async () => ({ ok: false, erro: 'A conta está indisponível nesta versão: ' + erro });
+  return { iniciar: async () => {}, estado, entrar: falha, criar: falha, sair: async () => ({ ok: false }), sincronizar: async () => estado(), marcarMudanca() {}, antesDeFechar: async () => {}, precisaEnviar: () => false };
 }
 
 // ---------- Ciclo de vida ----------
@@ -273,8 +329,25 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     app.setAppUserModelId('com.sak.comissoes');
     store = new Store(dirDados());
+    try {
+      if (!nuvemConfigurada() && !process.env.COMISSOES_CONTA_TESTE) throw Object.assign(new Error('nuvem não configurada'), { semNuvem: true });
+      conta = criarConta({ dir: dirDados(), store, safeStorage, avisar });
+      contaPronta = conta.iniciar().catch(() => {});
+    } catch (e) {
+      // a conta nunca pode impedir o app de abrir: segue com os dados do PC
+      if (!e.semNuvem) console.error('conta indisponível:', e);
+      conta = contaIndisponivel(String((e && e.message) || e), e.semNuvem ? 'sem-nuvem' : 'erro');
+    }
     registrarIpc();
     criarJanela();
+    iniciarAtualizacoes();
   });
   app.on('window-all-closed', () => app.quit());
+  // antes de fechar, manda pra nuvem o que ainda não foi (no máximo 4 s)
+  app.on('before-quit', (e) => {
+    if (saindo || !conta || !conta.precisaEnviar()) return;
+    e.preventDefault();
+    saindo = true;
+    conta.antesDeFechar(4000).finally(() => app.quit());
+  });
 }

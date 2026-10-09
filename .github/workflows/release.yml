@@ -1,0 +1,41 @@
+name: Publicar versão
+
+# Dispara quando uma tag de versão é enviada (ex.: v1.1.0).
+# Gera o instalador no Windows e publica no GitHub Releases;
+# o app instalado procura lá as atualizações automáticas.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Preparar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar instalador e publicar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always
+
+      - name: Guardar o instalador como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: Comissoes-instalador
+          path: dist/*.exe
+          if-no-files-found: error

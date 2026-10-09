@@ -1,15 +1,34 @@
 # Comissões
 
-Painel pessoal pra organizar clientes e pedidos de GFX (thumbs, ícones, banners).
-Tudo fica salvo **só neste computador**. Não tem servidor nem conta.
+Painel pra organizar clientes e pedidos de GFX (thumbs, ícones, banners).
+Cada pessoa tem a **própria conta**: os dados ficam no computador e também guardados na conta.
 
 ## Instalar
 
-Rode `dist\Comissoes-<versão>-instalador.exe`. Ele instala só pro seu usuário (não pede administrador)
-e cria atalhos na área de trabalho e no menu Iniciar. Desinstalar pelo Windows **não apaga** seus dados.
+1. Baixe o instalador mais novo em **https://github.com/kauanlacerda/comissoes/releases/latest**
+   (o arquivo `Comissoes-<versão>-instalador.exe`).
+2. Abra o arquivo. Se o Windows avisar "o Windows protegeu o computador", clique em
+   **Mais informações → Executar assim mesmo** (o app não tem assinatura paga, por isso o aviso).
+3. Ele instala só pro seu usuário, sem pedir administrador, e cria atalhos na área de trabalho e no menu Iniciar.
+
+Desinstalar pelo Windows **não apaga** seus dados.
+
+## Conta
+
+Na primeira vez, o app pede pra **Entrar** ou **Criar conta** (e-mail e senha).
+- Seus clientes e pedidos ficam guardados na sua conta. Em outro computador, é só entrar com o mesmo e-mail.
+- Depois de entrar, o app funciona mesmo **sem internet**. O que mudar sobe sozinho quando a conexão voltar.
+- Cada conta só enxerga os próprios dados.
+- As **imagens** (fotos, thumbs e referências) ficam só no computador onde foram colocadas.
+
+## Atualizações
+
+O app procura versão nova sozinho (ao abrir e a cada 6 horas), baixa em segundo plano
+e avisa **"Versão X pronta"**. Clique em **Reiniciar**, ou deixe que ela entre quando você fechar o app.
+Em **Configurações → Atualizações** dá pra procurar na hora.
 
 Pra rodar direto do código (desenvolvimento): `iniciar.bat` ou `npm start`.
-Não deixe as duas versões abertas ao mesmo tempo: elas usam os mesmos dados.
+Não deixe a versão instalada e a do código abertas ao mesmo tempo: elas usam os mesmos dados.
 
 ## Configurar o Discord (uma vez, 2 minutos)
 
@@ -21,6 +40,7 @@ O bot não precisa entrar em nenhum servidor e não lê mensagens de ninguém.
 3. No app: **Configurações → Discord**, cole o token, clique em **Salvar** e depois em **Testar**.
 
 O token fica guardado criptografado pelo Windows e nunca mais aparece na tela.
+Cada pessoa usa o próprio bot (o token não vai pra conta nem pra nuvem).
 
 ## Adicionar um cliente
 
@@ -69,10 +89,19 @@ Muda bordas, espaçamentos, fontes e a organização dos painéis, não só a co
 
 Em **Configurações → Dados** dá pra abrir a pasta, exportar e importar um backup.
 
+## Para o dono do app: nuvem (Supabase) e versões
+
+- A nuvem é um projeto Supabase. O endereço e a chave pública ("anon") ficam em `nuvem.json`.
+  Sem eles o app funciona só no computador, sem login.
+- A tabela é criada uma vez, colando `docs/supabase-comissoes.sql` no **SQL Editor** do Supabase e clicando em **Run**.
+- Publicar uma versão: aumentar `version` no `package.json`, commit, criar a tag `vX.Y.Z` e enviar pro GitHub.
+  O GitHub Actions gera o instalador e publica em Releases; os apps instalados se atualizam sozinhos.
+
 ## Para desenvolver
 
 - `npm start`: abre o app.
 - `node tools/testar-app.js`: teste de integração do app real, com dados temporários.
+- `node tools/testar-conta.js`: testa conta e sincronização contra uma nuvem falsa (sem internet).
 - `node_modules\.bin\electron tools\capturar.js <pasta> ambos`: fotos de todas as telas nos dois visuais, com dados de exemplo.
 - `node tools/servir.js 5180`, depois abrir `http://localhost:5180/renderer/index.html?semente=1`: interface no navegador, em modo simulado.
 - `npm run build`: gera o instalador em `dist\`.
