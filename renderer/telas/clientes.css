@@ -199,3 +199,14 @@ html[data-tema="of"] .nc-res-sub { font-weight: 400; }
 .nc-res .pill { flex: none; }
 .nc-abrir { align-self: flex-start; margin-top: 4px; font-size: 12px; }
 .nc-marcador { align-self: flex-start; font-size: var(--t-base); }
+
+/* ---------- Novo cliente: Pessoa | Grupo de DM ---------- */
+.nc-tipo { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--raio-ctrl); background: var(--interno); }
+html[data-tema="of"] .nc-tipo { background: none; border: 1px solid var(--borda); }
+.nc-tipo-op { height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: calc(var(--raio-ctrl) - 3px); background: none; color: var(--mudo); font-size: 13px; font-weight: var(--peso-forte); }
+html[data-tema="of"] .nc-tipo-op { height: 30px; border-radius: 4px; font-weight: 500; }
+.nc-tipo-op .ic { flex: none; }
+.nc-tipo-op:hover { color: var(--suave); }
+.nc-tipo-op[aria-pressed="true"] { background: var(--ativo); color: var(--texto); }
+html[data-tema="of"] .nc-tipo-op[aria-pressed="true"] { background: var(--interno); }
+.cl-grupo-nota { line-height: 1.45; }

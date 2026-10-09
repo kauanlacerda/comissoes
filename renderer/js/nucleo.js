@@ -59,6 +59,7 @@
       config: cfg,
       clientes: (Array.isArray(e.clientes) ? e.clientes : []).filter(ehObjeto).map(c => ({
         id: c.id || uid(), criadoEm: c.criadoEm || agoraISO(), nome: c.nome || c.globalName || c.username || 'Cliente',
+        tipo: c.tipo === 'grupo' ? 'grupo' : 'pessoa', canalId: /^\d{17,20}$/.test(String(c.canalId || '')) ? String(c.canalId) : '',
         discordId: c.discordId || '', username: c.username || '', globalName: c.globalName || '', avatar: c.avatar || '',
         corPerfil: c.corPerfil || '', contaCriada: c.contaCriada || '', atualizadoEm: c.atualizadoEm || '',
         roblox: c.roblox || null, conversa: c.conversa && c.conversa.estado ? c.conversa : { estado: 'respondido', desde: agoraISO() },
@@ -218,9 +219,10 @@
   App.acoes = {
     novoCliente(d) {
       const c = {
-        id: uid(), criadoEm: agoraISO(), nome: (d.nome || d.globalName || d.username || 'Cliente').trim(),
-        discordId: d.discordId || '', username: d.username || '', globalName: d.globalName || '', avatar: d.avatar || '',
-        corPerfil: d.corPerfil || '', contaCriada: d.contaCriada || (d.discordId ? App.dataDoSnowflake(d.discordId) : ''),
+        id: uid(), criadoEm: agoraISO(), nome: (d.nome || d.globalName || d.username || (d.tipo === 'grupo' ? 'Grupo' : 'Cliente')).trim(),
+        tipo: d.tipo === 'grupo' ? 'grupo' : 'pessoa', canalId: d.canalId || '',
+        discordId: d.tipo === 'grupo' ? '' : (d.discordId || ''), username: d.username || '', globalName: d.globalName || '', avatar: d.avatar || '',
+        corPerfil: d.corPerfil || '', contaCriada: d.contaCriada || (d.discordId ? App.dataDoSnowflake(d.discordId) : d.canalId ? App.dataDoSnowflake(d.canalId) : ''),
         atualizadoEm: d.discordId ? agoraISO() : '', roblox: d.roblox || null,
         conversa: { estado: d.faltaResponder ? 'falta' : 'respondido', desde: agoraISO() }, notas: '', pagaVia: d.pagaVia || ''
       };
@@ -289,13 +291,19 @@
   }
 
   // ---------- Ações de alto nível reutilizadas por várias telas ----------
-  App.abrirDiscord = (c) => { if (c && c.discordId) App.api.sistema.abrirDiscord(c.discordId); else UI.toast('Esse cliente não tem ID do Discord.', 'erro'); };
+  App.ehGrupo = (c) => !!c && c.tipo === 'grupo';
+  App.temDiscord = (c) => !!c && (App.ehGrupo(c) ? !!c.canalId : !!c.discordId);
+  App.abrirDiscord = (c) => {
+    if (App.ehGrupo(c) && c.canalId) App.api.sistema.abrirCanal(c.canalId);
+    else if (c && c.discordId) App.api.sistema.abrirDiscord(c.discordId);
+    else UI.toast(App.ehGrupo(c) ? 'Esse grupo não tem o ID salvo.' : 'Esse cliente não tem ID do Discord.', 'erro');
+  };
   App.copiar = async (texto, aviso = 'Copiado.') => { await App.api.sistema.copiar(texto); UI.toast(aviso, 'ok'); };
   // Puxa de novo os dados do Discord/Roblox e atualiza o cliente
   App.atualizarDadosCliente = async (id) => {
     const c = App.cliente(id); if (!c) return;
     let mudou = false;
-    if (c.discordId) {
+    if (c.discordId && !App.ehGrupo(c)) {
       const r = await App.api.discord.usuario(c.discordId);
       if (r.ok) {
         const d = r.dados;
@@ -337,7 +345,7 @@
         escolherImagens: async () => { await soNoApp(); return []; }, importar: async () => ({ ok: false, erro: 'Isso só funciona no app instalado.' }),
         listar: async () => [], abrirPasta: soNoApp, remover: async () => true, removerPedido: async () => true, caminhoDe: () => ''
       },
-      sistema: { abrirExterno: async (u) => { window.open(u, '_blank'); return true; }, abrirDiscord: async () => { UI.toast('Abriria o Discord.'); return true; }, copiar: async (t) => { try { await navigator.clipboard.writeText(t); } catch {} return true; } },
+      sistema: { abrirExterno: async (u) => { window.open(u, '_blank'); return true; }, abrirDiscord: async () => { UI.toast('Abriria o Discord.'); return true; }, abrirCanal: async () => { UI.toast('Abriria a conversa no Discord.'); return true; }, copiar: async (t) => { try { await navigator.clipboard.writeText(t); } catch {} return true; } },
       janela: { tema: () => {} }
     };
   }

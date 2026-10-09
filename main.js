@@ -251,6 +251,13 @@ function registrarIpc() {
     try { await shell.openExternal(temApp ? `discord://-/users/${id}` : `https://discord.com/users/${id}`); return true; }
     catch { shell.openExternal(`https://discord.com/users/${id}`); return true; }
   });
+  // DM ou grupo de DM pelo ID do canal: abre direto na conversa
+  ipcMain.handle('sistema:abrirCanalDiscord', async (_e, id) => {
+    if (!/^\d{17,20}$/.test(String(id))) return false;
+    const temApp = !!app.getApplicationNameForProtocol('discord://');
+    try { await shell.openExternal(temApp ? `discord://-/channels/@me/${id}` : `https://discord.com/channels/@me/${id}`); return true; }
+    catch { shell.openExternal(`https://discord.com/channels/@me/${id}`); return true; }
+  });
   ipcMain.handle('sistema:copiar', (_e, texto) => { clipboard.writeText(String(texto || '')); return true; });
   ipcMain.on('janela:tema', (_e, tema) => {
     const c = CORES_BARRA[tema === 'of' ? 'of' : 'cube'];

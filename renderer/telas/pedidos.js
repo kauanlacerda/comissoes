@@ -263,7 +263,7 @@
       <div class="ped-cli-corpo">
         <div class="ped-cli-nome">
           ${c.id ? `<button class="ped-cli-titulo truncar" data-ficha title="Ver ficha de ${esc(c.nome)}">${esc(c.nome)}</button>` : `<div class="ped-cli-titulo truncar">${esc(c.nome)}</div>`}
-          <div class="ped-cli-sub truncar">${c.username ? '@' + esc(c.username) + ' · ' : ''}${esc(p.titulo)}</div>
+          <div class="ped-cli-sub truncar">${App.ehGrupo(c) ? 'Grupo · ' : c.username ? '@' + esc(c.username) + ' · ' : ''}${esc(p.titulo)}</div>
         </div>
         <div class="fatos" style="--n:3">
           <div class="fato" ${fp.titulo ? `title="${esc(fp.titulo)}"` : ''}><span class="fato-rotulo ${fp.rot === 'Atrasado' ? fp.cls : ''}">${fp.rot}</span><span class="fato-valor ${fp.cls}">${esc(fp.val)}</span></div>
@@ -642,7 +642,7 @@
       <div class="campo"><label for="pf-cliente">Cliente</label>
         <select class="input" id="pf-cliente" data-f="clienteId">
           ${selCli ? '' : opt('', 'Escolha o cliente…', true)}
-          ${clientes.map(c => opt(c.id, c.username ? `${c.nome} (@${c.username})` : c.nome, c.id === selCli)).join('')}
+          ${clientes.map(c => opt(c.id, App.ehGrupo(c) ? `${c.nome} (grupo)` : c.username ? `${c.nome} (@${c.username})` : c.nome, c.id === selCli)).join('')}
         </select><div class="ped-erro" data-erro="clienteId" role="alert"></div></div>
       <div class="linha-campos">
         <div class="campo"><label for="pf-titulo">Título</label><input class="input" id="pf-titulo" data-f="titulo" maxlength="80" placeholder="Pack 4 thumbs" value="${esc(d.titulo)}" ${selCli ? 'autofocus' : ''}><div class="ped-erro" data-erro="titulo" role="alert"></div></div>

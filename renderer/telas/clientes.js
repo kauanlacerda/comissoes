@@ -24,7 +24,8 @@
   const corCapa = (c) => corValida(c.corPerfil) || UI.corDe(c.nome);
   const temRoblox = (c) => !!(c.roblox && (c.roblox.username || c.roblox.id));
   // '@usuario' | ID salvo mas ainda sem os dados do Discord | sem Discord
-  const arroba = (c) => (c.username ? '@' + c.username : c.discordId ? 'sem dados do Discord' : 'sem Discord');
+  const arroba = (c) => (App.ehGrupo(c) ? 'grupo de DM' : c.username ? '@' + c.username : c.discordId ? 'sem dados do Discord' : 'sem Discord');
+  const idDiscordDe = (c) => (App.ehGrupo(c) ? c.canalId : c.discordId);
   // botão que mostra "Buscando…": o que foi clicado ou, se ele sumiu num redesenho, o primeiro que existir na tela
   const botaoVivo = (btn, ...seletores) => (btn && btn.isConnected ? btn : seletores.map(s => document.querySelector('#area ' + s)).find(Boolean) || null);
 
@@ -49,7 +50,7 @@
   function itemLista(c, ativo) {
     const n = App.pedidosDoCliente(c.id).length;
     const falta = c.conversa.estado === 'falta';
-    const partes = [n ? plural(n, 'pedido', 'pedidos') : 'sem pedidos'];
+    const partes = [...(App.ehGrupo(c) ? ['Grupo'] : []), n ? plural(n, 'pedido', 'pedidos') : 'sem pedidos'];
     if (falta && c.conversa.desde) partes.push(App.fmtHa(c.conversa.desde));
     return `<button class="item ${ativo ? 'ativo' : ''}" data-cliente="${esc(c.id)}"${ativo ? ' aria-current="true"' : ''}>
       ${UI.avatar({ tam: 34, img: c.avatar, nome: c.nome })}
@@ -153,7 +154,28 @@
   // ======================================================================
   // Perfil (painel da direita)
   // ======================================================================
+  function caixaGrupo(c) {
+    if (!c.canalId) {
+      return `<div class="caixa cl-caixa">
+        <div class="cl-caixa-cab"><span class="sobrelinha">Grupo de DM</span></div>
+        <div class="cl-rot">Sem o ID do grupo. Com ele, "Abrir no Discord" vai direto pra conversa.</div>
+        <button class="link cl-link-acao" data-add-canal>${ic('mais', 14, 2.4)}<span data-rot>Adicionar ID do grupo</span></button>
+      </div>`;
+    }
+    const criado = c.contaCriada || App.dataDoSnowflake(c.canalId);
+    return `<div class="caixa cl-caixa">
+      <div class="cl-caixa-cab"><span class="sobrelinha">Grupo de DM</span></div>
+      <div class="cl-linha">
+        <div class="cl-campo"><div class="cl-rot">ID do grupo</div><div class="cl-val cl-id truncar">${esc(c.canalId)}</div></div>
+        <button class="btn btn-sec btn-peq btn-icone" data-copiar title="Copiar ID" aria-label="Copiar ID do grupo">${ic('copiar', 15)}</button>
+      </div>
+      ${criado ? `<div class="cl-campo"><div class="cl-rot">Grupo criado</div><div class="cl-val truncar">${esc(App.fmtDataCurta(criado))} · ${esc(App.anos(criado))}</div></div>` : ''}
+      <div class="cl-rot cl-grupo-nota">O bot não entra em grupos, então o nome é você que define.</div>
+    </div>`;
+  }
+
   function caixaDiscord(c) {
+    if (App.ehGrupo(c)) return caixaGrupo(c);
     if (!c.discordId) {
       return `<div class="caixa cl-caixa">
         <div class="cl-caixa-cab"><span class="sobrelinha">Discord</span></div>
@@ -207,7 +229,9 @@
 
   function renderPerfil(c) {
     const ocupado = atualizando.has(c.id);
-    const podeAtualizar = !!c.discordId || temRoblox(c);
+    const grupo = App.ehGrupo(c);
+    const podeAtualizar = (!grupo && !!c.discordId) || temRoblox(c);
+    const dicaAtualizar = !grupo && c.discordId ? 'puxa do Discord' : temRoblox(c) ? 'puxa do Roblox' : grupo ? 'grupo: manual' : 'sem ID';
     return `<div class="bloco sem-pad div-l cl-perfil">
       <div class="perfil-topo" style="--cor-capa:${corCapa(c)}"><div class="capa-mini"></div>${UI.avatar({ tam: 72, img: c.avatar, nome: c.nome })}</div>
       <div class="cl-perfil-corpo" data-rolagem="perfil-${esc(c.id)}">
@@ -217,9 +241,9 @@
         ${caixaConversa(c)}
         <div class="cl-espaco"></div>
         <div class="cl-acoes">
-          <button class="btn btn-acento btn-bloco" data-abrir-discord${c.discordId ? '' : ' disabled title="Esse cliente não tem ID do Discord"'}>${ic('externo', 17)}Abrir no Discord</button>
+          <button class="btn btn-acento btn-bloco" data-abrir-discord${App.temDiscord(c) ? (grupo ? ' title="Abre a conversa do grupo"' : '') : ` disabled title="${grupo ? 'Esse grupo não tem o ID salvo' : 'Esse cliente não tem ID do Discord'}"`}>${ic('externo', 17)}Abrir no Discord</button>
           <button class="btn btn-primario btn-bloco" data-novo-pedido>${ic('mais', 17, 2.4)}Novo pedido</button>
-          <button class="btn btn-sec btn-bloco" data-atualizar${ocupado || !podeAtualizar ? ' disabled' : ''}>${ic('atualizar', 17)}<span data-rot>${ocupado ? 'Atualizando…' : 'Atualizar dados'}</span><span class="dica">${c.discordId ? 'puxa do Discord' : temRoblox(c) ? 'puxa do Roblox' : 'sem ID'}</span></button>
+          <button class="btn btn-sec btn-bloco" data-atualizar${ocupado || !podeAtualizar ? ' disabled' : ''}>${ic('atualizar', 17)}<span data-rot>${ocupado ? 'Atualizando…' : 'Atualizar dados'}</span><span class="dica">${dicaAtualizar}</span></button>
           <button class="btn btn-bloco btn-centro cl-mais" data-mais aria-haspopup="menu"><span data-rot>Mais opções</span>${ic('chevB', 16)}</button>
         </div>
       </div>
@@ -286,6 +310,21 @@
     UI.toast('Discord conectado.', 'ok');
   }
 
+  async function adicionarCanal(c) {
+    const v = await UI.perguntar({
+      titulo: c.canalId ? 'Trocar ID do grupo' : 'Adicionar ID do grupo',
+      sub: 'No Discord: botão direito no grupo (na lista de conversas) → Copiar ID do canal.',
+      rotulo: 'ID do grupo de DM', valor: c.canalId || '', placeholder: 'Ex.: 1093847561029384756', ok: 'Salvar'
+    });
+    if (v == null) return;
+    const id = soDigitos(v);
+    if (!ID_VALIDO.test(id)) { UI.toast('Esse ID não parece válido. Ele tem de 17 a 20 números.', 'erro'); return; }
+    const outro = App.estado.clientes.find(x => (x.canalId === id || x.discordId === id) && x.id !== c.id);
+    if (outro) { UI.toast(`Esse ID já é de ${outro.nome}.`, 'erro'); return; }
+    App.acoes.atualizarCliente(c.id, { canalId: id, contaCriada: App.dataDoSnowflake(id) });
+    UI.toast('ID do grupo salvo.', 'ok');
+  }
+
   async function adicionarRoblox(c, btn) {
     const v = await UI.perguntar({
       titulo: temRoblox(c) ? 'Trocar usuário do Roblox' : 'Adicionar usuário do Roblox',
@@ -338,7 +377,9 @@
       ${op('nome', 'lapis', 'Editar nome')}
       ${op('pagavia', 'moeda', 'Editar "paga via"')}
       ${op('roblox', 'usuarioMais', temRoblox(c) ? 'Trocar usuário do Roblox' : 'Adicionar usuário do Roblox')}
-      ${c.discordId ? op('copiar', 'copiar', 'Copiar ID do Discord') : op('discord', 'discord', 'Adicionar ID do Discord')}
+      ${App.ehGrupo(c)
+        ? (c.canalId ? op('copiar', 'copiar', 'Copiar ID do grupo') + op('canal', 'lapis', 'Trocar ID do grupo') : op('canal', 'discord', 'Adicionar ID do grupo'))
+        : (c.discordId ? op('copiar', 'copiar', 'Copiar ID do Discord') : op('discord', 'discord', 'Adicionar ID do Discord'))}
       ${op('remover', 'lixo', 'Remover cliente', 'cl-menu-perigo')}`, (m, fechar) => {
       m.classList.add('cl-menu'); // estilos só deste menu (o .menu-flutuante é compartilhado)
       // no pé do painel o menu abriria para fora da janela: vira para cima
@@ -352,7 +393,8 @@
         // sem botão próprio: o "Buscando…" aparece no link da caixa (se houver) ou no "Mais opções" (botaoVivo)
         else if (o === 'roblox') adicionarRoblox(c, null);
         else if (o === 'discord') adicionarDiscord(c, null);
-        else if (o === 'copiar') App.copiar(c.discordId, 'ID do Discord copiado.');
+        else if (o === 'canal') adicionarCanal(c);
+        else if (o === 'copiar') App.copiar(idDiscordDe(c), App.ehGrupo(c) ? 'ID do grupo copiado.' : 'ID do Discord copiado.');
         else if (o === 'remover') removerCliente(c);
       });
     });
@@ -421,7 +463,8 @@
 
       const on = (sel, fn) => { const b = $(sel, area); if (b) b.onclick = (e) => fn(e.currentTarget); };
       on('[data-pagavia]', () => editarPagaVia(c));
-      on('[data-copiar]', () => App.copiar(c.discordId, 'ID do Discord copiado.'));
+      on('[data-copiar]', () => App.copiar(idDiscordDe(c), App.ehGrupo(c) ? 'ID do grupo copiado.' : 'ID do Discord copiado.'));
+      on('[data-add-canal]', () => adicionarCanal(c));
       on('[data-add-discord]', (b) => adicionarDiscord(c, b));
       on('[data-add-roblox]', (b) => adicionarRoblox(c, b));
       on('[data-rbx-abrir]', () => App.api.sistema.abrirExterno(`https://www.roblox.com/users/${encodeURIComponent(c.roblox.id)}/profile`));
@@ -491,10 +534,21 @@
 
   App.modais.novoCliente = function () {
     // erroD: { id, codigo } da última busca no Discord que falhou; erroR: usuário do Roblox não achado
-    const st = { discord: null, existente: null, roblox: null, robloxNome: '', buscandoD: false, buscandoR: false, apelidoAuto: '', erroD: null, erroR: '' };
+    const st = { tipo: 'pessoa', discord: null, existente: null, roblox: null, robloxNome: '', buscandoD: false, buscandoR: false, apelidoAuto: '', erroD: null, erroR: '' };
 
     const corpo = `
-      <div class="campo">
+      <div class="nc-tipo" role="group" aria-label="Tipo de cliente">
+        <button type="button" class="nc-tipo-op" data-tipo="pessoa" aria-pressed="true">${ic('clientes', 15)}Pessoa</button>
+        <button type="button" class="nc-tipo-op" data-tipo="grupo" aria-pressed="false">${ic('msg', 15)}Grupo de DM</button>
+      </div>
+      <div class="campo oculto" data-so-grupo>
+        <label for="nc-canal">ID do grupo de DM</label>
+        <input class="input nc-id" id="nc-canal" data-canal inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="Ex.: 1093847561029384756">
+        <div class="nc-erro" data-erro-c role="alert"></div>
+        <div class="ajuda nc-ajuda">${ic('info', 14)}<span>No Discord: botão direito no grupo (na lista de conversas) → Copiar ID do canal. O bot não entra em grupos, então o nome do grupo é você que escreve aqui embaixo.</span></div>
+        <div class="nc-slot" data-res-c></div>
+      </div>
+      <div class="campo" data-so-pessoa>
         <label for="nc-id">ID do Discord</label>
         <div class="linha-campos nc-linha">
           <input class="input nc-id" id="nc-id" data-id inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="Ex.: 284719306512384000" autofocus>
@@ -504,7 +558,7 @@
         <div class="ajuda nc-ajuda">${ic('info', 14)}<span>No Discord: botão direito no cliente → Copiar ID do usuário. Precisa do Modo desenvolvedor (Configurações → Avançado).</span></div>
         <div class="nc-slot" data-res-d></div>
       </div>
-      <div class="campo">
+      <div class="campo" data-so-pessoa>
         <label for="nc-rbx">Usuário do Roblox <span class="nc-opc">(opcional)</span></label>
         <div class="linha-campos nc-linha">
           <input class="input" id="nc-rbx" data-rbx autocomplete="off" spellcheck="false" placeholder="ex.: lunar_bloxx">
@@ -514,7 +568,7 @@
         <div class="nc-slot" data-res-r></div>
       </div>
       <div class="campo">
-        <label for="nc-apelido">Como aparece no painel</label>
+        <label for="nc-apelido" data-rot-apelido>Como aparece no painel</label>
         <input class="input" id="nc-apelido" data-apelido autocomplete="off" placeholder="Nome que você vai ver nas listas">
       </div>
       <label class="marcador nc-marcador"><input type="checkbox" data-falta checked><span>Já entra como <span class="cor-vermelho forte">falta responder</span></span></label>`;
@@ -529,12 +583,17 @@
         const inpR = $('[data-rbx]', el), btnR = $('[data-buscar-r]', el), erroR = $('[data-erro-r]', el), resR = $('[data-res-r]', el);
         const inpA = $('[data-apelido]', el), chkF = $('[data-falta]', el), btnSalvar = $('[data-salvar]', el);
 
+        const inpC = $('[data-canal]', el), erroC = $('[data-erro-c]', el), resC = $('[data-res-c]', el);
+        const ehGrupo = () => st.tipo === 'grupo';
+        const canalAtual = () => soDigitos(inpC.value);
+        const canalDono = (id) => App.estado.clientes.find(c => c.canalId === id || c.discordId === id);
         const idAtual = () => soDigitos(inpId.value);
         const nomeRoblox = () => limparRoblox(inpR.value);
         // a última busca DESTE ID falhou por algo que não é o ID: salva só com o ID (e o nome digitado)
         const salvaSemDados = () => !!(st.erroD && st.erroD.id === idAtual() && FALHA_SEM_CULPA_DO_ID.has(st.erroD.codigo));
         // o botão só fica aceso quando o clique consegue salvar de verdade
         const podeSalvar = () => {
+          if (ehGrupo()) { const id = canalAtual(); return ID_VALIDO.test(id) && !canalDono(id) && !!inpA.value.trim(); }
           if (st.existente || st.buscandoD || st.buscandoR) return false;
           const id = idAtual(), apelido = inpA.value.trim();
           if (id && !ID_VALIDO.test(id)) return false;                          // ID incompleto
@@ -617,8 +676,57 @@
           return true;
         }
 
+        // grupo: o ID vale sozinho (não dá pra consultar), mostra a data de criação e avisa se já está na lista
+        function conferirCanal() {
+          const id = canalAtual();
+          erro(erroC, ''); resC.innerHTML = '';
+          if (!id) return;
+          const dono = canalDono(id);
+          if (dono) {
+            resC.innerHTML = caixaJaSalvo(dono);
+            $('[data-abrir-ficha]', resC).onclick = () => { fechar(); App.ir('clientes', dono.id); };
+            return;
+          }
+          if (!ID_VALIDO.test(id)) return;
+          const criado = App.dataDoSnowflake(id);
+          resC.innerHTML = `<div class="caixa nc-res nc-res-peq">${UI.avatar({ tam: 34, nome: inpA.value.trim() || 'Grupo' })}
+            <div class="nc-res-txt"><div class="nc-res-nome truncar">${esc(inpA.value.trim() || 'Grupo de DM')}</div>
+            <div class="nc-res-sub truncar">grupo criado em ${esc(App.fmtDataCurta(criado))} · ${esc(App.anos(criado))}</div></div>
+            <span class="pill verde">${ic('check', 13, 2.8)}ID válido</span></div>`;
+        }
+        function trocarTipo(tipo) {
+          st.tipo = tipo;
+          $$('[data-tipo]', el).forEach(b => b.setAttribute('aria-pressed', b.dataset.tipo === tipo ? 'true' : 'false'));
+          $$('[data-so-pessoa]', el).forEach(n => n.classList.toggle('oculto', tipo === 'grupo'));
+          $$('[data-so-grupo]', el).forEach(n => n.classList.toggle('oculto', tipo !== 'grupo'));
+          $('[data-rot-apelido]', el).textContent = tipo === 'grupo' ? 'Nome do grupo' : 'Como aparece no painel';
+          inpA.placeholder = tipo === 'grupo' ? 'Ex.: Equipe Lava Obby' : 'Nome que você vai ver nas listas';
+          const sub = el.querySelector('.modal-cab .sub');
+          if (sub) sub.textContent = tipo === 'grupo' ? 'Cole o ID do grupo de DM e dê um nome pra ele.' : 'Cole o ID do Discord e o resto vem sozinho.';
+          if (tipo === 'grupo') { conferirCanal(); inpC.focus(); } else inpId.focus();
+          atualizarBotao();
+        }
+        $$('[data-tipo]', el).forEach(b => b.onclick = () => trocarTipo(b.dataset.tipo));
+        inpC.addEventListener('input', () => {
+          const limpo = soDigitos(inpC.value);
+          if (limpo !== inpC.value) inpC.value = limpo;
+          conferirCanal(); atualizarBotao();
+        });
+        inpC.addEventListener('blur', () => { const id = canalAtual(); if (id && !ID_VALIDO.test(id) && el.isConnected) erro(erroC, 'Esse ID não parece válido. Ele tem de 17 a 20 números.'); });
+        inpC.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); inpA.focus(); } });
+
         async function salvar() {
           if (btnSalvar.disabled) return;
+          if (ehGrupo()) {
+            const canalId = canalAtual(), nome = inpA.value.trim();
+            if (!ID_VALIDO.test(canalId) || canalDono(canalId) || !nome) { atualizarBotao(); return; }
+            const novoId = App.acoes.novoCliente({ tipo: 'grupo', canalId, nome, contaCriada: App.dataDoSnowflake(canalId), faltaResponder: chkF.checked });
+            App.acoes.atualizarCliente(novoId, { atualizadoEm: '' }, { render: false });
+            fechar();
+            App.ir('clientes', novoId);
+            UI.toast(`Grupo adicionado: ${nome}.`, 'ok');
+            return;
+          }
           const id = idAtual();
           // ID que já está na lista (de outro modal, por exemplo): mostra o "Já salvo" em vez de duplicar
           if (id && App.estado.clientes.some(c => c.discordId === id)) { await buscarDiscord(); return; }
@@ -681,7 +789,7 @@
         inpR.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarRoblox(); } });
         btnR.onclick = buscarRoblox;
 
-        inpA.addEventListener('input', atualizarBotao);
+        inpA.addEventListener('input', () => { if (ehGrupo()) conferirCanal(); atualizarBotao(); });
         inpA.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); salvar(); } });
 
         $('[data-cancelar]', el).onclick = fechar;

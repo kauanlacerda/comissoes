@@ -63,6 +63,8 @@ async function main() {
     ok('remoção fora da pasta de dados é bloqueada', fora === false);
     const trav = await ev("return await window.api.arquivos.listar('../..', 'entrega')");
     ok('pedidoId com ../ é bloqueado', Array.isArray(trav) && trav.length === 0);
+    const canalRuim = await ev("return await window.api.sistema.abrirCanal('abc')");
+    ok('ID de grupo inválido é recusado', canalRuim === false);
     // tema
     await ev("App.definirTema('of'); return true");
     ok('troca de tema aplica data-tema', (await ev('return document.documentElement.dataset.tema')) === 'of');

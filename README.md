@@ -26,6 +26,16 @@ O token fica guardado criptografado pelo Windows e nunca mais aparece na tela.
 3. No app: **Novo cliente**, cole o ID e clique em **Buscar**. O nome e a foto vêm sozinhos.
 4. Se quiser, coloque o usuário do Roblox (opcional) pra ter o avatar e o ID dele.
 
+## Grupo de DM como cliente
+
+Quando o pedido rola num grupo de DM, você pode cadastrar o grupo:
+
+1. Em **Novo cliente**, escolha **Grupo de DM**.
+2. No Discord, clique com o botão direito no grupo (na lista de conversas) e escolha **Copiar ID do canal**.
+3. Cole o ID e escreva o nome do grupo.
+
+O bot não consegue entrar em grupos, então o nome é você que define. O ID serve pra **Abrir no Discord** cair direto na conversa do grupo. O app também mostra a data em que o grupo foi criado.
+
 ## "Falta responder"
 
 O app não lê suas DMs (o Discord não permite isso de forma segura).

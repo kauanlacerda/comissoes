@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('api', {
   sistema: {
     abrirExterno: (url) => ipcRenderer.invoke('sistema:abrirExterno', url),
     abrirDiscord: (id) => ipcRenderer.invoke('sistema:abrirDiscord', id),
+    abrirCanal: (id) => ipcRenderer.invoke('sistema:abrirCanalDiscord', id),
     copiar: (texto) => ipcRenderer.invoke('sistema:copiar', texto)
   },
   janela: {

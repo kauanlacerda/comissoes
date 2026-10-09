@@ -21,9 +21,11 @@ const JS = {
   ficha: "App.ir('clientes', App.estado.clientes[0].id)",
   'novo-cliente': "App.modais.novoCliente && App.modais.novoCliente()",
   'novo-pedido': "App.modais.novoPedido && App.modais.novoPedido(App.estado.clientes[0].id)",
-  busca: "App.abrirBusca()"
+  busca: "App.abrirBusca()",
+  'novo-grupo': "App.modais.novoCliente(); setTimeout(() => { document.querySelector('[data-tipo=grupo]').click(); const i = document.querySelector('[data-canal]'); i.value = '1093847561029384756'; i.dispatchEvent(new Event('input')); const a = document.querySelector('[data-apelido]'); a.value = 'Equipe Lava Obby'; a.dispatchEvent(new Event('input')); }, 100)",
+  'ficha-grupo': "App.ir('clientes', App.acoes.novoCliente({ tipo: 'grupo', canalId: '1093847561029384756', nome: 'Equipe Lava Obby', faltaResponder: true }))"
 };
-const TELA_BASE = { pedido: 'pedidos', ficha: 'clientes', 'novo-cliente': 'dashboard', 'novo-pedido': 'dashboard', busca: 'dashboard' };
+const TELA_BASE = { pedido: 'pedidos', ficha: 'clientes', 'novo-cliente': 'dashboard', 'novo-pedido': 'dashboard', busca: 'dashboard', 'novo-grupo': 'dashboard', 'ficha-grupo': 'clientes' };
 
 app.whenReady().then(async () => {
   fs.mkdirSync(saida, { recursive: true });

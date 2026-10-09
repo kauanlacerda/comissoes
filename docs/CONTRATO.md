@@ -55,7 +55,7 @@ Se precisar de algo que não existe na base, implemente localmente no seu arquiv
 ## Dados (`App.estado`)
 ```js
 config:  { tema:'cube'|'of', nome, vagas:3, ocupado:false, prazoAlertaDias:2, moedaPadrao:'Robux', linkGamepass:'', msgGamepass:'... {valor} ... {link}', lateralRecolhida }
-clientes: [{ id, criadoEm, nome /*apelido mostrado*/, discordId, username, globalName, avatar /*url local ou ''*/, corPerfil /*'#hex' ou ''*/,
+clientes: [{ id, criadoEm, nome /*apelido mostrado*/, tipo:'pessoa'|'grupo', canalId /*grupo de DM: ID do canal*/, discordId /*só pessoa*/, username, globalName, avatar /*url local ou ''*/, corPerfil /*'#hex' ou ''*/,
              contaCriada /*ISO*/, atualizadoEm, roblox: null | { id, username, displayName, avatar }, conversa: { estado:'falta'|'respondido', desde:ISO },
              notas, pagaVia }]
 pedidos:  [{ id, criadoEm, clienteId, titulo, jogo, qtd /*nº de entregas, 1–12*/, etapa:'aceito'|'comecado'|'entregue'|'aprovado'|'pago',
@@ -70,7 +70,7 @@ Seletores: `App.cliente(id)`, `App.pedido(id)`, `App.pedidosDoCliente(id)`, `App
 Ações (únicas que mudam dados; todas salvam sozinhas): `App.acoes.novoCliente(d)`→id, `atualizarCliente(id, patch, opts)`, `removerCliente(id)`, `marcarConversa(id,'falta'|'respondido')`, `novoPedido(d)`→id (`d = {clienteId,titulo,jogo,qtd,valor,moeda,recebido,prazo,etapa}`), `atualizarPedido(id, patch, opts)`, `mudarEtapa(id, etapa)`, `registrarPagamento(id, quantia)`, `pedirAjuste(id, texto)`, `definirEntrega(id, indice, {caminho,url}|null)`, `removerPedido(id)`, `configurar(patch)`. `App.definirTema('cube'|'of')`.
 
 Utilidades: `App.hoje()`, `App.diasAte(ymd)`, `App.fmtDia(ymd)` 'dom, 11', `App.fmtDiaLongo(ymd)` 'domingo, 11', `App.fmtDataLonga(date)` '9 de outubro de 2026', `App.fmtDataCurta(iso)` '24 fev 2017', `App.fmtMesAno(iso)` 'ago 2026', `App.fmtPrazoRel(ymd)` 'em 2 dias'/'hoje'/'atrasado 1 dia', `App.fmtHa(iso)` 'há 3 h', `App.anos(iso)` '9 anos', `App.fmtValor(n, moeda)` '4.800 Robux'/'R$ 90', `App.fmtNum(n)`, `App.saudacao()`, `App.MES_LONGO` ['janeiro',...], `App.SEM` ['dom',...].
-Alto nível: `App.abrirDiscord(cliente)`, `App.copiar(texto, aviso)`, `App.atualizarDadosCliente(id)` (puxa Discord/Roblox de novo), `App.abrirBusca()`.
+Alto nível: `App.ehGrupo(c)`, `App.temDiscord(c)`, `App.abrirDiscord(cliente)` (grupo abre a conversa pelo canal), `App.copiar(texto, aviso)`, `App.atualizarDadosCliente(id)` (puxa Discord/Roblox de novo), `App.abrirBusca()`.
 Modais compartilhados ficam em `App.modais` (cada um definido pela tela dona): `novoCliente()` (clientes.js), `novoPedido(clienteId?)`, `editarPedido(id)`, `registrarPagamento(id)` (pedidos.js). Sempre cheque se existe antes de chamar.
 
 ## API do processo principal (`App.api`) — tudo assíncrono
@@ -78,7 +78,7 @@ Modais compartilhados ficam em `App.modais` (cada um definido pela tela dona): `
 `App.api.discord.tokenStatus()` → `{configurado, criptografado}`; `salvarToken(t)`; `testarToken()` → `{ok, bot|erro}`.
 `App.api.roblox.usuario(nomeDeUsuario)` → `{ok, dados:{id, username, displayName, avatar}, erro?}`.
 `App.api.arquivos.escolherImagens(multiplas)` → `[caminhos]`; `importar({pedidoId, tipo:'referencias'|'entrega', caminho, slot})` → `{ok, caminho, url, nome}|{ok:false, erro}`; `listar(pedidoId, tipo)` → `[{nome, caminho, url}]`; `abrirPasta(pedidoId, tipo)`; `remover(caminho)`; `caminhoDe(fileDoDragDrop)` → caminho no disco.
-`App.api.sistema.abrirExterno(urlHttps)`, `abrirDiscord(discordId)`, `copiar(texto)`. `App.api.dados.abrirPasta()`, `exportar()`, `importar()` → `{ok, dados}` (após importar chame `App.substituirEstado(r.dados)`).
+`App.api.sistema.abrirExterno(urlHttps)`, `abrirDiscord(discordId)`, `abrirCanal(canalId)`, `copiar(texto)`. `App.api.dados.abrirPasta()`, `exportar()`, `importar()` → `{ok, dados}` (após importar chame `App.substituirEstado(r.dados)`).
 No navegador (teste) essas chamadas são simuladas: Discord devolve um cliente falso, arquivos avisam "só no app".
 
 ## UI (`UI`)

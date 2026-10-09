@@ -116,7 +116,7 @@
         const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
         const atualizar = () => {
           const t = norm(q.value.trim());
-          const cs = App.estado.clientes.filter(c => !t || [c.nome, c.username, c.globalName, c.discordId, c.roblox && c.roblox.username].some(v => norm(v).includes(t))).slice(0, 8);
+          const cs = App.estado.clientes.filter(c => !t || [c.nome, c.username, c.globalName, c.discordId, c.canalId, c.roblox && c.roblox.username].some(v => norm(v).includes(t))).slice(0, 8);
           const ps = App.estado.pedidos.filter(p => t && [p.titulo, p.jogo, (App.cliente(p.clienteId) || {}).nome].some(v => norm(v).includes(t))).slice(0, 8);
           itens = [...cs.map(c => ({ tipo: 'c', c })), ...ps.map(p => ({ tipo: 'p', p }))];
           res.innerHTML = itens.length ? itens.map((it, i) => it.tipo === 'c'
